@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LLMind Tab Test</title>
+    <style>
+        body { background: #1a1a1a; color: #eee; font-family: Arial; padding: 20px; }
+        .test-result { background: #333; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { color: #4fc14f; }
+        .error { color: #ff5555; }
+        .info { color: #5555ff; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+            <h1>LLMind Tab Content Test</h1>
+    <button onclick="runTests()">Run API Tests</button>
+    <button onclick="goToMainApp()">Go to Main App</button>
+    <button onclick="showManualFix()">Show Manual Fix</button>
+    <div id="results"></div>
+
+    <script>
+        async function runTests() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<div class="test-result">Running API tests...</div>';
+            
+            // Test 1: Check if we can fetch chat history
+            try {
+                const response = await fetch('/api/chats');
+                const data = await response.json();
+                results.innerHTML += `<div class="test-result success">✅ Chat API: ${data.status} - ${data.chats?.length || 0} chats found</div>`;
+                if (data.chats && data.chats.length > 0) {
+                    results.innerHTML += `<div class="test-result info">ℹ️ First chat: "${data.chats[0].title}"</div>`;
+                }
+            } catch (e) {
+                results.innerHTML += `<div class="test-result error">❌ Chat API: ${e.message}</div>`;
+            }
+            
+            // Test 2: Check documents API
+            try {
+                const response = await fetch('/api/documents');
+                const data = await response.json();
+                results.innerHTML += `<div class="test-result success">✅ Documents API: ${data.status} - ${data.documents?.length || 0} documents found</div>`;
+            } catch (e) {
+                results.innerHTML += `<div class="test-result error">❌ Documents API: ${e.message}</div>`;
+            }
+            
+            // Test 3: Check models API
+            try {
+                const response = await fetch('/api/models');
+                const data = await response.json();
+                results.innerHTML += `<div class="test-result success">✅ Models API: ${data.status}</div>`;
+                if (data.current_model) {
+                    results.innerHTML += `<div class="test-result info">ℹ️ Current model: ${data.current_model.name || 'None'}</div>`;
+                }
+            } catch (e) {
+                results.innerHTML += `<div class="test-result error">❌ Models API: ${e.message}</div>`;
+            }
+            
+            // Test 4: Check status API
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                results.innerHTML += `<div class="test-result success">✅ Status API: ${data.status}</div>`;
+            } catch (e) {
+                results.innerHTML += `<div class="test-result error">❌ Status API: ${e.message}</div>`;
+            }
+        }
+        
+        function goToMainApp() {
+            window.location.href = '/';
+        }
+        
+        function showManualFix() {
+            const results = document.getElementById('results');
+            results.innerHTML = `
+                <div class="test-result info">
+                    <h3>Manual Fix Instructions:</h3>
+                    <p>1. Go to the main LLMind app</p>
+                    <p>2. Open the browser console (F12)</p>
+                    <p>3. Paste this code and press Enter:</p>
+                    <pre style="background: #222; padding: 10px; overflow-x: auto;">
+// Force reload all tab data
+if (window.llmindApp) {
+    console.log('Manually reloading all tabs...');
+    window.llmindApp.loadChatHistory();
+    window.llmindApp.loadDocuments();
+    window.llmindApp.loadModels();
+    window.llmindApp.loadVoices();
+    console.log('Tab reload complete!');
+} else {
+    console.error('LLMind app not found! Try refreshing the page first.');
+}</pre>
+                    <p>4. Check if the tabs now show content</p>
+                </div>
+            `;
+        }
+        
+        // Auto-run tests on load
+        window.onload = () => {
+            runTests();
+        };
+    </script>
+</body>
+</html> 

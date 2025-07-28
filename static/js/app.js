@@ -1,0 +1,4192 @@
+/**
+ * LLMind JavaScript Application
+ * Handles all GUI interactions, WebSocket communication, and real-time features
+ */
+
+class LLMindApp {
+    constructor() {
+        this.websocket = null;
+        this.isVoiceModeActive = false;
+        this.isRecording = false;
+        this.conversationHistory = [];
+        this.mediaRecorder = null;
+        this.audioChunks = [];
+        
+        // Chat history management
+        this.chatList = [];
+        this.currentChatId = null;
+        this.exportFolderPath = localStorage.getItem('llmind_export_folder') || '';
+        
+        // Thinking indicator management
+        this.thinkingTimer = null;
+        this.thinkingBubble = null;
+        this.responseStarted = false;
+        
+        this.init();
+    }
+
+    init() {
+        console.log('🚀 Initializing LLMind...');
+        
+        // Initialize WebSocket connection
+        this.initWebSocket();
+        
+        // Setup event listeners
+        this.setupEventListeners();
+        
+        // Initialize features
+        this.setupTabSwitching();
+        this.setupChatInterface();
+        this.setupChatHistory();
+        this.setupVoiceControls();
+        this.setupFileUpload();
+        this.setupModelManagement();
+        // Settings setup moved to event listeners section
+        this.setupProfilingControls();
+        this.setupPromptConfiguration();
+        this.setupReasoningInterface();
+        
+        // Initial data loading moved to DOMContentLoaded to ensure proper timing
+        console.log('📝 Initial data loading will happen after DOM is ready');
+        
+        console.log('✅ LLMind initialized successfully!');
+    }
+
+    // === WebSocket Communication ===
+    initWebSocket() {
+        const wsUrl = `ws://${window.location.host}/ws`;
+        console.log('🔌 Attempting WebSocket connection to:', wsUrl);
+        
+        try {
+            this.websocket = new WebSocket(wsUrl);
+            console.log('🔌 WebSocket object created');
+            
+            this.websocket.onopen = () => {
+                console.log('🔌 WebSocket onopen event fired - WebSocket connected');
+                this.updateConnectionStatus('connected');
+                console.log('🔌 Status should now be updated to connected');
+                
+                // Check if system is fully initialized
+                this.checkSystemInitialization();
+            };
+            
+            this.websocket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                this.handleWebSocketMessage(data);
+            };
+            
+            this.websocket.onclose = () => {
+                console.log('🔌 WebSocket onclose event fired - WebSocket disconnected');
+                this.updateConnectionStatus('disconnected');
+                // Attempt to reconnect after 3 seconds
+                setTimeout(() => this.initWebSocket(), 3000);
+            };
+            
+            this.websocket.onerror = (error) => {
+                console.error('❌ WebSocket onerror event fired - WebSocket error:', error);
+                this.updateConnectionStatus('error');
+            };
+            
+        } catch (error) {
+            console.error('❌ Failed to initialize WebSocket:', error);
+            this.updateConnectionStatus('error');
+        }
+    }
+
+    handleWebSocketMessage(data) {
+        switch (data.type) {
+            case 'chat_start':
+                this.startThinkingTimer();
+                break;
+                
+            case 'chat_chunk':
+                this.handleResponseChunk(data.content);
+                break;
+                
+            case 'chat_end':
+                this.finishResponse();
+                break;
+                
+            case 'voice_transcription':
+                this.handleVoiceTranscription(data.text);
+                break;
+                
+            case 'tts_audio':
+                this.playTTSAudio(data.audio);
+                break;
+                
+            case 'error':
+                this.handleWebSocketError(data.message);
+                break;
+        }
+    }
+
+    handleWebSocketError(message) {
+        console.error('WebSocket error message:', message);
+        
+        // Clear thinking state and hide any typing indicators
+        this.clearThinkingState();
+        this.currentMessageElement = null;
+        this.responseStarted = false;
+        
+        // Show error in chat
+        if (message.includes('initializing')) {
+            this.addMessageToChat('assistant', `⏳ ${message}\n\n*Components are loading in the background. This may take a few minutes on first startup.*`);
+            
+            // Show initialization status
+            this.showInitializationStatus();
+        } else {
+            this.addMessageToChat('assistant', `❌ ${message}`);
+        }
+        
+        // Show toast notification
+        this.showToast(message, 'warning');
+    }
+
+    showInitializationStatus() {
+        // Update status indicator to show initializing (but don't override connected status)
+        console.log('🔄 showInitializationStatus called - but status should remain connected');
+        
+        // Only show initialization UI, don't change connection status
+        if (!this.initCheckInterval) {
+            console.log('⏳ Starting initialization progress check...');
+            this.initCheckInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/status');
+                    const data = await response.json();
+                    
+                    if (data.status === 'success' && data.system.model.status !== 'loading') {
+                        // Initialization complete
+                        console.log('✅ Initialization check complete - stopping interval');
+                        clearInterval(this.initCheckInterval);
+                        this.initCheckInterval = null;
+                        this.showToast('🎉 LLMind is now fully initialized and ready!', 'success');
+                        
+                        // Clear any initialization messages
+                        const lastMessage = this.chatMessages.lastElementChild;
+                        if (lastMessage && lastMessage.textContent.includes('Components are loading')) {
+                            this.addMessageToChat('assistant', '✅ All components loaded successfully! You can now chat, upload documents, and use voice features.');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error checking initialization status:', error);
+                }
+            }, 5000); // Check every 5 seconds
+        }
+    }
+
+    updateConnectionStatus(status) {
+        console.log('🔄 updateConnectionStatus called with status:', status);
+        
+        const statusIndicator = document.getElementById('status-indicator');
+        const statusText = statusIndicator.querySelector('span');
+        const statusIcon = statusIndicator.querySelector('i');
+        
+        console.log('🔄 Found DOM elements:', {
+            statusIndicator: statusIndicator,
+            statusText: statusText,
+            statusIcon: statusIcon
+        });
+        
+        statusIndicator.className = `status-indicator ${status}`;
+        console.log('🔄 Set statusIndicator className to:', statusIndicator.className);
+        
+        switch (status) {
+            case 'connected':
+                statusText.textContent = 'Connected';
+                statusIcon.className = 'fas fa-circle';
+                console.log('🔄 Set status to Connected');
+                break;
+            case 'connecting':
+                statusText.textContent = 'Connecting...';
+                statusIcon.className = 'fas fa-circle';
+                console.log('🔄 Set status to Connecting...');
+                break;
+            case 'initializing':
+                statusText.textContent = 'Initializing...';
+                statusIcon.className = 'fas fa-spinner fa-spin';
+                console.log('🔄 Set status to Initializing...');
+                break;
+            case 'disconnected':
+                statusText.textContent = 'Disconnected';
+                statusIcon.className = 'fas fa-circle';
+                console.log('🔄 Set status to Disconnected');
+                break;
+            case 'error':
+                statusText.textContent = 'Connection Error';
+                statusIcon.className = 'fas fa-exclamation-circle';
+                console.log('🔄 Set status to Connection Error');
+                break;
+        }
+        
+        console.log('🔄 Status update complete. Current text:', statusText.textContent);
+    }
+
+    // === Event Listeners ===
+    setupEventListeners() {
+        // Chat input handling
+        const chatInput = document.getElementById('chat-input');
+        const sendBtn = document.getElementById('send-btn');
+        
+        if (chatInput && sendBtn) {
+            chatInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.sendMessage();
+                }
+            });
+            
+            chatInput.addEventListener('input', () => {
+                this.autoResizeTextarea(chatInput);
+            });
+            
+            sendBtn.addEventListener('click', () => this.sendMessage());
+        }
+
+        // Voice toggle
+        const voiceToggle = document.getElementById('voice-toggle');
+        if (voiceToggle) {
+            voiceToggle.addEventListener('click', () => this.toggleVoiceMode());
+        }
+
+        // Clear chat
+        const clearChat = document.getElementById('clear-chat');
+        if (clearChat) {
+            clearChat.addEventListener('click', () => this.clearChat());
+        }
+
+        // Settings
+        const saveSettings = document.getElementById('save-settings');
+        if (saveSettings) {
+            saveSettings.addEventListener('click', () => this.saveSettings());
+        }
+
+        const resetSettings = document.getElementById('reset-settings');
+        if (resetSettings) {
+            resetSettings.addEventListener('click', () => this.resetSettings());
+        }
+
+        // Performance refresh
+        const refreshMetrics = document.getElementById('refresh-metrics');
+        if (refreshMetrics) {
+            refreshMetrics.addEventListener('click', () => this.refreshPerformanceMetrics());
+        }
+
+        // Voice test
+        const testVoice = document.getElementById('test-voice');
+        if (testVoice) {
+            testVoice.addEventListener('click', () => this.testVoice());
+        }
+
+        // Range input updates
+        this.setupRangeInputs();
+        
+        // Tab switching with data loading
+        this.setupTabDataLoading();
+    }
+
+    setupRangeInputs() {
+        console.log('🎛️ Setting up range inputs...');
+        const rangeInputs = document.querySelectorAll('input[type="range"]');
+        console.log(`Found ${rangeInputs.length} range inputs`);
+        
+        rangeInputs.forEach(input => {
+            const updateValue = () => {
+                const valueSpan = document.getElementById(input.id + '-value');
+                if (valueSpan) {
+                    valueSpan.textContent = input.value;
+                    console.log(`Updated ${input.id} display to ${input.value}`);
+                } else {
+                    console.log(`Value span not found for ${input.id}`);
+                }
+            };
+            
+            input.addEventListener('input', updateValue);
+            updateValue(); // Initial update
+        });
+        console.log('✅ Range inputs setup complete');
+    }
+
+    updateRangeValue(input) {
+        const valueElement = document.getElementById(input.id + '-value');
+        if (valueElement) {
+            valueElement.textContent = input.value;
+        }
+    }
+
+    setupTabDataLoading() {
+        // Load data when Performance tab is selected
+        document.addEventListener('click', (e) => {
+            const target = e.target.closest('.nav-tab');
+            if (!target) return;
+            
+            const tabName = target.dataset.tab;
+            console.log('🔄 Tab clicked:', tabName);
+            
+            if (tabName === 'performance') {
+                console.log('🎯 Performance tab clicked - loading data');
+                this.loadPerformanceData();
+            }
+            
+            if (tabName === 'settings') {
+                console.log('⚙️ Settings tab clicked - loading data');
+                this.loadSettingsData();
+            }
+            
+            if (tabName === 'models') {
+                console.log('🧠 Models tab clicked - loading data');
+                this.loadModels();
+            }
+        });
+    }
+
+    // === Performance Tab Functions ===
+    async loadPerformanceData() {
+        try {
+            console.log('📊 Loading performance data...');
+            
+            // First, ensure the performance tab content is visible
+            const performanceTab = document.getElementById('performance-tab');
+            if (performanceTab) {
+                performanceTab.style.display = 'block';
+                performanceTab.style.visibility = 'visible';
+                performanceTab.style.opacity = '1';
+                console.log('✅ Performance tab made visible');
+            }
+            
+            const response = await fetch('/api/performance');
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                console.log('✅ Performance data loaded from API:', data);
+                this.updatePerformanceUI(data);
+                this.setupPerformanceEventListeners();
+            } else {
+                console.error('Failed to load performance data:', data.message);
+                this.showToast('Failed to load performance data', 'error');
+            }
+        } catch (error) {
+            console.error('Error loading performance data:', error);
+            this.showToast('Error loading performance data', 'error');
+        }
+    }
+    
+    setupPerformanceEventListeners() {
+        // Refresh metrics button
+        const refreshBtn = document.getElementById('refresh-metrics');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => this.refreshPerformanceMetrics());
+        }
+        
+        // Profiling buttons
+        const runProfilingBtn = document.getElementById('run-profiling');
+        if (runProfilingBtn) {
+            runProfilingBtn.addEventListener('click', () => this.runProfiling());
+        }
+        
+        const compareModelsBtn = document.getElementById('compare-models');
+        if (compareModelsBtn) {
+            compareModelsBtn.addEventListener('click', () => this.compareModels());
+        }
+        
+        const optimizationGuideBtn = document.getElementById('optimization-guide');
+        if (optimizationGuideBtn) {
+            optimizationGuideBtn.addEventListener('click', () => this.showOptimizationGuide());
+        }
+        
+        console.log('✅ Performance event listeners setup');
+    }
+
+    updatePerformanceUI(data) {
+        console.log('📊 Updating performance UI with data:', data);
+        
+        // Add detailed debug logging
+        console.log('📊 Data structure:', {
+            hasModelPerformance: !!data.model_performance,
+            hasVectorStore: !!data.vector_store,
+            hasDocumentCount: data.document_count !== undefined,
+            fullData: data
+        });
+        
+        // Debug: Check if elements exist
+        const elements = {
+            responseTime: document.getElementById('perf-response-time'),
+            tokensSecond: document.getElementById('perf-tokens-sec'),
+            memory: document.getElementById('perf-memory'),
+            memoryAvailable: document.getElementById('perf-memory-available'),
+            docCount: document.getElementById('perf-doc-count'),
+            vectorCount: document.getElementById('perf-vector-count')
+        };
+        
+        console.log('📊 UI Elements found:', {
+            responseTime: !!elements.responseTime,
+            tokensSecond: !!elements.tokensSecond,
+            memory: !!elements.memory,
+            memoryAvailable: !!elements.memoryAvailable,
+            docCount: !!elements.docCount,
+            vectorCount: !!elements.vectorCount
+        });
+        
+        // Update performance metrics
+        const responseTimeEl = document.getElementById('perf-response-time');
+        const tokensSecEl = document.getElementById('perf-tokens-sec');
+        const memoryEl = document.getElementById('perf-memory');
+        const memoryAvailableEl = document.getElementById('perf-memory-available');
+        const docCountEl = document.getElementById('perf-doc-count');
+        const vectorCountEl = document.getElementById('perf-vector-count');
+        
+        // Handle chat_performance for response time
+        if (responseTimeEl) {
+            if (data.model_performance?.avg_response_time !== undefined) {
+                responseTimeEl.textContent = `${data.model_performance.avg_response_time.toFixed(2)}s`;
+            } else if (data.chat_performance?.avg_response_time !== undefined) {
+                responseTimeEl.textContent = `${data.chat_performance.avg_response_time.toFixed(2)}s`;
+            } else {
+                responseTimeEl.textContent = '0.00s';
+            }
+        }
+        
+        if (tokensSecEl && data.model_performance) {
+            tokensSecEl.textContent = Math.round(data.model_performance.tokens_per_second || 0);
+        }
+        
+        if (memoryEl && data.model_performance?.memory_usage) {
+            memoryEl.textContent = `${data.model_performance.memory_usage.used_gb.toFixed(1)}GB`;
+        }
+        
+        if (memoryAvailableEl && data.model_performance?.memory_usage) {
+            const available = data.model_performance.memory_usage.total_gb - data.model_performance.memory_usage.used_gb;
+            memoryAvailableEl.textContent = `${available.toFixed(1)}GB`;
+        }
+        
+        if (docCountEl && data.document_count !== undefined) {
+            docCountEl.textContent = data.document_count;
+        }
+        
+        if (vectorCountEl && data.vector_store) {
+            // Handle both total_vectors and total_documents
+            const vectorCount = data.vector_store.total_vectors || data.vector_store.total_documents || 0;
+            vectorCountEl.textContent = vectorCount;
+        }
+        
+        console.log('✅ Performance UI updated successfully');
+    }
+
+    async refreshPerformanceMetrics() {
+        console.log('🔄 Refreshing performance metrics...');
+        this.showToast('Refreshing performance metrics...', 'info');
+        await this.loadPerformanceData();
+        this.showToast('Performance metrics updated', 'success');
+    }
+
+    // === Settings Tab Functions ===
+    async loadSettingsData() {
+        try {
+            console.log('⚙️ Loading settings data...');
+            
+            // First, ensure the settings tab content is visible
+            const settingsTab = document.getElementById('settings-tab');
+            if (settingsTab) {
+                settingsTab.style.display = 'block';
+                settingsTab.style.visibility = 'visible';
+                settingsTab.style.opacity = '1';
+                console.log('✅ Settings tab made visible');
+            }
+            
+            const response = await fetch('/api/settings');
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                console.log('✅ Settings data loaded from API:', data);
+                this.updateSettingsUI(data);
+            } else {
+                // If no settings endpoint, use current values
+                console.log('No settings endpoint - using default values');
+                this.loadDefaultSettings();
+            }
+            
+            // Setup event listeners for settings
+            this.setupSettingsEventListeners();
+            
+        } catch (error) {
+            console.log('Settings endpoint not available - using defaults:', error);
+            this.loadDefaultSettings();
+            this.setupSettingsEventListeners();
+        }
+    }
+    
+    setupSettingsEventListeners() {
+        // Save settings button
+        const saveBtn = document.getElementById('save-settings');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => this.saveSettings());
+        }
+        
+        // Reset settings button  
+        const resetBtn = document.getElementById('reset-settings');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => this.resetSettings());
+        }
+        
+        // Test HF token button
+        const testTokenBtn = document.getElementById('test-hf-token');
+        if (testTokenBtn) {
+            testTokenBtn.addEventListener('click', () => this.testHFToken());
+        }
+        
+        // Update range input displays
+        this.setupRangeInputs();
+        
+        console.log('✅ Settings event listeners setup');
+    }
+
+    loadDefaultSettings() {
+        console.log('⚙️ Loading default settings...');
+        
+        // Set default values
+        const temperatureInput = document.getElementById('temperature');
+        const maxTokensInput = document.getElementById('max-tokens');
+        const chunkSizeInput = document.getElementById('chunk-size');
+        const topKInput = document.getElementById('top-k');
+        
+        if (temperatureInput) {
+            temperatureInput.value = '0.7';
+            // Only temperature has a value display element
+            const tempValue = document.getElementById('temperature-value');
+            if (tempValue) tempValue.textContent = '0.7';
+            console.log('✅ Set temperature to 0.7');
+        } else {
+            console.log('❌ Temperature input not found');
+        }
+        
+        if (maxTokensInput) {
+            maxTokensInput.value = '2048';
+            console.log('✅ Set max tokens to 2048');
+        } else {
+            console.log('❌ Max tokens input not found');
+        }
+        
+        if (chunkSizeInput) {
+            chunkSizeInput.value = '512';
+            console.log('✅ Set chunk size to 512');
+        } else {
+            console.log('❌ Chunk size input not found');
+        }
+        
+        if (topKInput) {
+            topKInput.value = '5';
+            console.log('✅ Set top-k to 5');
+        } else {
+            console.log('❌ Top-k input not found');
+        }
+        
+        console.log('✅ Default settings loaded');
+    }
+
+    updateSettingsUI(data) {
+        console.log('⚙️ Updating settings UI with data:', data);
+        
+        if (data.settings) {
+            const settings = data.settings;
+            
+            const temperatureInput = document.getElementById('temperature');
+            const maxTokensInput = document.getElementById('max-tokens');
+            const chunkSizeInput = document.getElementById('chunk-size');
+            const topKInput = document.getElementById('top-k');
+            
+            console.log('⚙️ Settings elements found:', {
+                temperature: !!temperatureInput,
+                maxTokens: !!maxTokensInput,
+                chunkSize: !!chunkSizeInput,
+                topK: !!topKInput
+            });
+            
+            if (temperatureInput && settings.temperature !== undefined) {
+                temperatureInput.value = settings.temperature;
+            }
+            if (maxTokensInput && settings.max_tokens !== undefined) {
+                maxTokensInput.value = settings.max_tokens;
+            }
+            if (chunkSizeInput && settings.chunk_size !== undefined) {
+                chunkSizeInput.value = settings.chunk_size;
+            }
+            if (topKInput && settings.top_k_results !== undefined) {
+                topKInput.value = settings.top_k_results;
+            }
+            
+            // Update range displays
+            this.setupRangeInputs();
+        }
+    }
+
+    async saveSettings() {
+        try {
+            const settings = this.collectSettingsFromUI();
+            console.log('💾 Saving settings:', settings);
+            
+            const response = await fetch('/api/settings/update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(settings)
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                this.showToast('Settings saved successfully', 'success');
+            } else {
+                throw new Error(data.message || 'Failed to save settings');
+            }
+        } catch (error) {
+            console.error('Error saving settings:', error);
+            this.showToast('Failed to save settings: ' + error.message, 'error');
+        }
+    }
+
+    collectSettingsFromUI() {
+        const temperatureInput = document.getElementById('temperature');
+        const maxTokensInput = document.getElementById('max-tokens');
+        const chunkSizeInput = document.getElementById('chunk-size');
+        const topKInput = document.getElementById('top-k');
+        const hfTokenInput = document.getElementById('hf-token');
+        
+        return {
+            temperature: temperatureInput ? parseFloat(temperatureInput.value) : 0.7,
+            max_tokens: maxTokensInput ? parseInt(maxTokensInput.value) : 2048,
+            chunk_size: chunkSizeInput ? parseInt(chunkSizeInput.value) : 512,
+            top_k_results: topKInput ? parseInt(topKInput.value) : 5,
+            hf_token: hfTokenInput ? hfTokenInput.value.trim() : ''
+        };
+    }
+    
+    async testHFToken() {
+        try {
+            const hfTokenInput = document.getElementById('hf-token');
+            const token = hfTokenInput ? hfTokenInput.value.trim() : '';
+            
+            if (!token) {
+                this.showToast('Please enter a Hugging Face token to test', 'warning');
+                return;
+            }
+            
+            this.showToast('Testing Hugging Face token...', 'info');
+            
+            const response = await fetch('/api/test-hf-token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ token: token })
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                this.showToast('✅ Hugging Face token is valid!', 'success');
+            } else {
+                this.showToast('❌ Invalid Hugging Face token', 'error');
+            }
+        } catch (error) {
+            console.error('Error testing HF token:', error);
+            this.showToast('Error testing token', 'error');
+        }
+    }
+
+    async resetSettings() {
+        if (confirm('Reset all settings to defaults?')) {
+            this.loadDefaultSettings();
+            await this.saveSettings();
+            this.showToast('Settings reset to defaults', 'success');
+        }
+    }
+
+    // === MLX Profiling Functions ===
+    setupProfilingControls() {
+        // Run profiling
+        const runProfilingBtn = document.getElementById('run-profiling');
+        if (runProfilingBtn) {
+            runProfilingBtn.addEventListener('click', () => this.runProfiling());
+        }
+
+        // Compare models
+        const compareModelsBtn = document.getElementById('compare-models');
+        if (compareModelsBtn) {
+            compareModelsBtn.addEventListener('click', () => this.compareModels());
+        }
+
+        // Optimization guide
+        const optimizationGuideBtn = document.getElementById('optimization-guide');
+        if (optimizationGuideBtn) {
+            optimizationGuideBtn.addEventListener('click', () => this.showOptimizationGuide());
+        }
+
+        // Download results
+        const downloadResultsBtn = document.getElementById('download-results');
+        if (downloadResultsBtn) {
+            downloadResultsBtn.addEventListener('click', () => this.downloadProfilingResults());
+        }
+    }
+
+    async runProfiling() {
+        try {
+            const modelSelect = document.getElementById('profile-model-select');
+            const quickMode = document.getElementById('quick-profiling');
+            
+            const selectedModel = modelSelect ? modelSelect.value : '';
+            const isQuickMode = quickMode ? quickMode.checked : true;
+            
+            console.log('🔬 Starting profiling...', { selectedModel, isQuickMode });
+            this.showToast('Running MLX profiling analysis...', 'info');
+            
+            const requestData = {
+                quick_mode: isQuickMode
+            };
+            
+            if (selectedModel) {
+                requestData.model_name = selectedModel;
+            }
+            
+            const response = await fetch('/api/profiling/run', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestData)
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                this.showProfilingResults(data);
+                this.showToast('Profiling completed successfully!', 'success');
+            } else {
+                throw new Error(data.message || 'Profiling failed');
+            }
+        } catch (error) {
+            console.error('Error running profiling:', error);
+            this.showToast('Profiling failed: ' + error.message, 'error');
+        }
+    }
+
+    showProfilingResults(data) {
+        const resultsContainer = document.getElementById('profiling-results');
+        const resultsSummary = document.getElementById('results-summary');
+        
+        if (!resultsContainer || !resultsSummary) return;
+        
+        // Show results container
+        resultsContainer.style.display = 'block';
+        
+        // Build results HTML
+        let resultsHTML = '';
+        
+        if (data.summary) {
+            const summary = data.summary;
+            resultsHTML += `
+                <div class="profiling-summary-cards">
+                    <div class="metric-card">
+                        <h4>Average Performance</h4>
+                        <div class="metric-value">${summary.avg_tokens_per_second?.toFixed(1) || 'N/A'} tok/s</div>
+                    </div>
+                    <div class="metric-card">
+                        <h4>Memory Usage</h4>
+                        <div class="metric-value">${summary.memory_usage_gb?.toFixed(1) || 'N/A'}GB</div>
+                    </div>
+                    <div class="metric-card">
+                        <h4>GPU Utilization</h4>
+                        <div class="metric-value">${summary.gpu_utilization?.toFixed(0) || 'N/A'}%</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        if (data.best_config) {
+            resultsHTML += `
+                <div class="best-config">
+                    <h5>🏆 Best Configuration</h5>
+                    <p><strong>${data.best_config.name}</strong>: ${data.best_config.tokens_per_second?.toFixed(1)} tok/s</p>
+                </div>
+            `;
+        }
+        
+        if (data.recommendations && data.recommendations.length > 0) {
+            resultsHTML += `
+                <div class="recommendations">
+                    <h5>💡 Recommendations</h5>
+                    <ul>
+                        ${data.recommendations.map(rec => `<li>${rec}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+        
+        resultsSummary.innerHTML = resultsHTML;
+        
+        // Store results for download
+        this.lastProfilingResults = data;
+    }
+
+    async compareModels() {
+        try {
+            this.showToast('Comparing available models...', 'info');
+            
+            const response = await fetch('/api/profiling/compare-models', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    models: [] // Let the backend choose available models
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                this.showModelComparisonResults(data);
+                this.showToast('Model comparison completed!', 'success');
+            } else {
+                throw new Error(data.message || 'Model comparison failed');
+            }
+        } catch (error) {
+            console.error('Error comparing models:', error);
+            this.showToast('Model comparison failed: ' + error.message, 'error');
+        }
+    }
+
+    showModelComparisonResults(data) {
+        const resultsContainer = document.getElementById('profiling-results');
+        const resultsSummary = document.getElementById('results-summary');
+        
+        if (!resultsContainer || !resultsSummary) return;
+        
+        resultsContainer.style.display = 'block';
+        
+        let comparisonHTML = '<div class="model-comparison"><h5>📊 Model Comparison</h5>';
+        
+        if (data.comparison && data.comparison.length > 0) {
+            comparisonHTML += '<div class="comparison-table"><table><thead><tr>';
+            comparisonHTML += '<th>Model</th><th>Tokens/sec</th><th>Memory (GB)</th><th>Status</th>';
+            comparisonHTML += '</tr></thead><tbody>';
+            
+            data.comparison.forEach(model => {
+                comparisonHTML += `<tr>
+                    <td>${model.model_name}</td>
+                    <td>${model.tokens_per_second?.toFixed(1) || 'N/A'}</td>
+                    <td>${model.memory_usage_gb?.toFixed(1) || 'N/A'}</td>
+                    <td><span class="status ${model.status === 'success' ? 'enabled' : 'disabled'}">${model.status}</span></td>
+                </tr>`;
+            });
+            
+            comparisonHTML += '</tbody></table></div>';
+        }
+        
+        comparisonHTML += '</div>';
+        resultsSummary.innerHTML = comparisonHTML;
+        
+        this.lastProfilingResults = data;
+    }
+
+    async showOptimizationGuide() {
+        try {
+            const response = await fetch('/api/profiling/optimization-guide');
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                // Create a modal or new window to show the optimization guide
+                this.displayOptimizationGuide(data.guide);
+            } else {
+                throw new Error(data.message || 'Failed to load optimization guide');
+            }
+        } catch (error) {
+            console.error('Error loading optimization guide:', error);
+            this.showToast('Failed to load optimization guide: ' + error.message, 'error');
+        }
+    }
+
+    displayOptimizationGuide(guide) {
+        // Create a modal overlay
+        const modal = document.createElement('div');
+        modal.className = 'optimization-guide-modal';
+        modal.innerHTML = `
+            <div class="modal-content large">
+                <div class="modal-header">
+                    <h3><i class="fas fa-book"></i> MLX Optimization Guide</h3>
+                    <button class="modal-close" onclick="this.parentElement.parentElement.parentElement.remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body optimization-guide-content">
+                    ${this.formatOptimizationGuide(guide)}
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    }
+
+    formatOptimizationGuide(guide) {
+        let html = '';
+        
+        if (guide.hardware_recommendations) {
+            html += '<h4>🖥️ Hardware Recommendations</h4>';
+            Object.entries(guide.hardware_recommendations).forEach(([hardware, configs]) => {
+                html += `<h5>${hardware.toUpperCase()}</h5>`;
+                Object.entries(configs).forEach(([useCase, config]) => {
+                    html += `<div class="config-item">
+                        <strong>${useCase}:</strong> 
+                        ${config.max_tokens} tokens, ${config.temp} temperature, ${config.quantization} quantization
+                    </div>`;
+                });
+            });
+        }
+        
+        if (guide.optimization_techniques) {
+            html += '<h4>⚡ Optimization Techniques</h4><ul>';
+            guide.optimization_techniques.forEach(technique => {
+                html += `<li>${technique}</li>`;
+            });
+            html += '</ul>';
+        }
+        
+        if (guide.mlx_flags) {
+            html += '<h4>🚩 MLX Configuration Flags</h4>';
+            Object.entries(guide.mlx_flags).forEach(([category, flags]) => {
+                html += `<h5>${category.replace('_', ' ').toUpperCase()}</h5><ul>`;
+                Object.entries(flags).forEach(([flag, description]) => {
+                    html += `<li><code>--${flag}</code>: ${description}</li>`;
+                });
+                html += '</ul>';
+            });
+        }
+        
+        return html;
+    }
+
+    async downloadProfilingResults() {
+        if (!this.lastProfilingResults) {
+            this.showToast('No profiling results to download', 'warning');
+            return;
+        }
+        
+        try {
+            const dataStr = JSON.stringify(this.lastProfilingResults, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            
+            const url = window.URL.createObjectURL(dataBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `mlx_profiling_results_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            this.showToast('Profiling results downloaded', 'success');
+        } catch (error) {
+            console.error('Error downloading results:', error);
+            this.showToast('Failed to download results', 'error');
+        }
+    }
+
+    // === Tab Switching ===
+    setupTabSwitching() {
+        const navTabs = document.querySelectorAll('.nav-tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        navTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetTab = tab.dataset.tab;
+                console.log(`🔄 Switching to tab: ${targetTab}`);
+                
+                // Update active tab
+                navTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // Update visible content
+                tabContents.forEach(content => {
+                    content.classList.remove('active');
+                    if (content.id === targetTab + '-tab') {
+                        content.classList.add('active');
+                        // Force display to ensure content is visible
+                        content.style.display = 'block';
+                        content.style.visibility = 'visible';
+                        content.style.opacity = '1';
+                        console.log(`✅ Activated tab content: ${content.id}`);
+                    }
+                });
+
+                // Load tab-specific data with delay to ensure DOM is ready
+                setTimeout(() => {
+                    this.loadTabData(targetTab);
+                }, 100);
+            });
+        });
+        
+        // Ensure initially active tab is properly displayed
+        const activeTab = document.querySelector('.tab-content.active');
+        if (activeTab) {
+            activeTab.style.display = 'block';
+            activeTab.style.visibility = 'visible';
+            activeTab.style.opacity = '1';
+        }
+    }
+
+    loadTabData(tabName) {
+        console.log('📋 Loading tab data for:', tabName);
+        switch (tabName) {
+            case 'documents':
+                this.loadDocuments();
+                break;
+            case 'models':
+                this.loadModels();
+                break;
+            case 'performance':
+                this.loadPerformanceData();
+                break;
+            case 'voice':
+                this.loadVoices();
+                break;
+            case 'history':
+                this.loadChatHistory();
+                break;
+            case 'reasoning':
+                this.loadReasoningData();
+                break;
+            case 'settings':
+                this.loadSettingsData();
+                break;
+            default:
+                console.log('ℹ️ No specific loader for tab:', tabName);
+        }
+    }
+
+    // === Chat Interface ===
+    setupChatInterface() {
+        this.chatMessages = document.getElementById('chat-messages');
+        this.currentMessageElement = null;
+    }
+
+    sendMessage() {
+        const input = document.getElementById('chat-input');
+        const message = input.value.trim();
+        
+        if (!message || !this.websocket) return;
+        
+        // Add user message to chat
+        this.addMessageToChat('user', message);
+        
+        // Clear input
+        input.value = '';
+        this.autoResizeTextarea(input);
+        
+        // Validate and clean conversation history
+        const validHistory = this.conversationHistory.filter(entry => 
+            entry && 
+            typeof entry === 'object' && 
+            ['user', 'assistant'].includes(entry.type) &&
+            typeof entry.message === 'string' &&
+            entry.message.length < 1000 // Reasonable message length limit
+        );
+
+        // Detect if this is a story/creative writing request
+        const isStoryRequest = this.isStoryOrCreativeRequest(message);
+        console.log(`📝 Story request detected: ${isStoryRequest} for message: "${message.substring(0, 50)}..."`);
+        
+        // Prepare message with enhanced parameters for stories
+        const chatMessage = {
+            type: 'chat',
+            message: message,
+            context: validHistory.slice(-6), // Last 3 exchanges (6 messages)
+            // Add metadata for longer responses
+            metadata: {
+                isStoryRequest: isStoryRequest,
+                requestedLength: isStoryRequest ? 'long' : 'normal',
+                preferredTokens: isStoryRequest ? 1500 : undefined // Override for stories
+            }
+        };
+        
+        // Send to WebSocket
+        this.websocket.send(JSON.stringify(chatMessage));
+        
+        // Add to conversation history
+        this.conversationHistory.push({
+            type: 'user',
+            message: message,
+            timestamp: new Date().toISOString()
+        });
+        
+        // Limit conversation history size
+        if (this.conversationHistory.length > 100) {
+            this.conversationHistory = this.conversationHistory.slice(-50);
+        }
+        
+        // Refresh chat history to show the new/updated chat
+        setTimeout(() => {
+            this.loadChatHistory();
+        }, 1000);
+    }
+
+    isStoryOrCreativeRequest(message) {
+        // Check for story-related keywords and patterns
+        const storyKeywords = [
+            'tell me a story', 'write a story', 'story about', 'long story',
+            'tell me about', 'write about', 'describe in detail',
+            'creative writing', 'narrative', 'tale', 'adventure',
+            'once upon a time', 'short story', 'fiction',
+            'explain in detail', 'give me details', 'elaborate',
+            'write an essay', 'describe how', 'tell me how'
+        ];
+        
+        const lowerMessage = message.toLowerCase();
+        
+        // Check for explicit story requests
+        for (const keyword of storyKeywords) {
+            if (lowerMessage.includes(keyword)) {
+                return true;
+            }
+        }
+        
+        // Check for question patterns that typically need longer responses
+        const longResponsePatterns = [
+            /^(explain|describe|tell me about|write about|how does|what is|why does).*detailed?/i,
+            /^(give me|provide|write|create).*comprehensive/i,
+            /^(explain|describe|tell me).*step by step/i,
+            /^write.*essay/i,
+            /^tell.*long/i,
+            /.*in detail.*$/i,
+            /.*comprehensive.*$/i
+        ];
+        
+        for (const pattern of longResponsePatterns) {
+            if (pattern.test(message)) {
+                return true;
+            }
+        }
+        
+        // Check message length - very detailed questions often expect detailed answers
+        if (message.length > 100 && (lowerMessage.includes('explain') || lowerMessage.includes('describe'))) {
+            return true;
+        }
+        
+        return false;
+    }
+
+    addMessageToChat(type, content) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${type}`;
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        
+        if (type === 'assistant') {
+            // Create empty message for streaming
+            this.currentMessageElement = contentDiv;
+        } else {
+            contentDiv.innerHTML = this.formatMessage(content);
+        }
+        
+        messageDiv.appendChild(contentDiv);
+        this.chatMessages.appendChild(messageDiv);
+        
+        // Scroll to bottom
+        this.scrollChatToBottom();
+        
+        return contentDiv;
+    }
+
+    appendChatChunk(chunk) {
+        // Legacy method - now handled by handleResponseChunk
+        this.handleResponseChunk(chunk);
+    }
+
+    startThinkingTimer() {
+        // Clear any existing timer and reset state
+        this.clearThinkingState();
+        this.responseStarted = false;
+        
+        // Start 2-second timer to show thinking indicator
+        this.thinkingTimer = setTimeout(() => {
+            if (!this.responseStarted) {
+                this.showThinkingBubble();
+            }
+        }, 2000);
+    }
+
+    showThinkingBubble() {
+        // Create a separate thinking bubble
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message assistant thinking-message';
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content thinking-content';
+        contentDiv.innerHTML = '<em>Thinking...</em>';
+        
+        messageDiv.appendChild(contentDiv);
+        this.chatMessages.appendChild(messageDiv);
+        
+        // Store reference to thinking bubble
+        this.thinkingBubble = messageDiv;
+        
+        // Scroll to bottom
+        this.scrollChatToBottom();
+    }
+
+    handleResponseChunk(chunk) {
+        // If this is the first chunk, clear thinking state and start response
+        if (!this.responseStarted) {
+            this.clearThinkingState();
+            this.responseStarted = true;
+            
+            // Create new response message
+            this.currentMessageElement = this.addMessageToChat('assistant', '');
+        }
+        
+        // Append chunk to current response
+        if (this.currentMessageElement) {
+            this.currentMessageElement.innerHTML += chunk;
+            this.scrollChatToBottom();
+        }
+    }
+
+    finishResponse() {
+        // Clear thinking state
+        this.clearThinkingState();
+        
+        // Add assistant response to conversation history if it has content
+        if (this.currentMessageElement) {
+            const responseContent = this.currentMessageElement.innerHTML;
+            if (responseContent && responseContent.trim()) {
+                this.conversationHistory.push({
+                    type: 'assistant',
+                    message: responseContent,
+                    timestamp: new Date().toISOString()
+                });
+            }
+        }
+        
+        // Reset state
+        this.currentMessageElement = null;
+        this.responseStarted = false;
+    }
+
+    clearThinkingState() {
+        // Clear timer if it exists
+        if (this.thinkingTimer) {
+            clearTimeout(this.thinkingTimer);
+            this.thinkingTimer = null;
+        }
+        
+        // Remove thinking bubble if it exists
+        if (this.thinkingBubble) {
+            this.thinkingBubble.remove();
+            this.thinkingBubble = null;
+        }
+    }
+
+    // Legacy methods for compatibility
+    showTypingIndicator() {
+        this.startThinkingTimer();
+    }
+
+    hideTypingIndicator() {
+        this.finishResponse();
+    }
+
+    formatMessage(content) {
+        // Basic markdown-like formatting
+        return content
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/\n/g, '<br>');
+    }
+
+    scrollChatToBottom() {
+        this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+    }
+
+    autoResizeTextarea(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    }
+
+    clearChat() {
+        if (confirm('Are you sure you want to clear the chat history?')) {
+            // Clear thinking state
+            this.clearThinkingState();
+            this.currentMessageElement = null;
+            this.responseStarted = false;
+            
+            this.chatMessages.innerHTML = `
+                <div class="welcome-message">
+                    <div class="message assistant">
+                        <div class="message-content">
+                            <p><strong>Chat cleared!</strong></p>
+                            <p>Ready for a new conversation.</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            this.conversationHistory = [];
+            this.currentChatId = null;
+            this.updateChatHistorySelection();
+            this.updateExportButton();
+            this.showToast('Chat history cleared', 'success');
+        }
+    }
+
+    // === Chat History Management ===
+
+    setupChatHistory() {
+        console.log('📋 Setting up chat history...');
+
+        // New chat buttons (both in chat tab and history tab)
+        const newChatBtn = document.getElementById('new-chat-btn');
+        const newChatHistoryBtn = document.getElementById('new-chat-history-btn');
+        
+        if (newChatBtn) {
+            newChatBtn.addEventListener('click', () => this.startNewChat());
+        }
+        if (newChatHistoryBtn) {
+            newChatHistoryBtn.addEventListener('click', () => this.startNewChat());
+        }
+
+        // Export chat button
+        const exportChatBtn = document.getElementById('export-chat-btn');
+        if (exportChatBtn) {
+            exportChatBtn.addEventListener('click', () => this.showExportModal());
+        }
+
+        // Export all chats button
+        const exportAllChatsBtn = document.getElementById('export-all-chats-btn');
+        if (exportAllChatsBtn) {
+            exportAllChatsBtn.addEventListener('click', () => this.exportAllChats());
+        }
+
+        // Export modal handlers
+        const closeExportModal = document.getElementById('close-export-modal');
+        const cancelExport = document.getElementById('cancel-export');
+        const confirmExport = document.getElementById('confirm-export');
+        const browseFolderBtn = document.getElementById('browse-folder-btn');
+
+        if (closeExportModal) {
+            closeExportModal.addEventListener('click', () => this.hideExportModal());
+        }
+        if (cancelExport) {
+            cancelExport.addEventListener('click', () => this.hideExportModal());
+        }
+        if (confirmExport) {
+            confirmExport.addEventListener('click', () => this.exportCurrentChat());
+        }
+        if (browseFolderBtn) {
+            browseFolderBtn.addEventListener('click', () => this.browseFolderPath());
+        }
+
+        // Initialize export folder input
+        const exportFolderInput = document.getElementById('export-folder');
+        if (exportFolderInput && this.exportFolderPath) {
+            exportFolderInput.value = this.exportFolderPath;
+        }
+    }
+
+    async loadChatHistory() {
+        console.log('🔍 Loading chat history...');
+        try {
+            const response = await fetch('/api/chats');
+            console.log('📡 Chat history response status:', response.status);
+            const data = await response.json();
+            console.log('📡 Chat history data:', data);
+
+            if (data.status === 'success') {
+                this.chatList = data.chats;
+                console.log('✅ Chat list set:', this.chatList.length, 'chats');
+                this.displayChatHistory();
+            } else {
+                console.error('❌ Chat history API returned error:', data);
+                this.showToast('Failed to load chat history: ' + (data.message || 'Unknown error'), 'error');
+            }
+        } catch (error) {
+            console.error('❌ Error loading chat history:', error);
+            this.showToast('Failed to load chat history', 'error');
+        }
+    }
+
+    displayChatHistory() {
+        console.log('🎨 Displaying chat history, chatList length:', this.chatList.length);
+        
+        // Get both possible chat history containers
+        const sidebarList = document.getElementById('chat-history-list');
+        const mainList = document.getElementById('chat-history-main-list');
+        
+        console.log('📦 Containers found:', { 
+            sidebarList: !!sidebarList, 
+            mainList: !!mainList 
+        });
+        
+        // Simple approach: just update the main list for now
+        if (mainList) {
+            if (this.chatList.length === 0) {
+                console.log('📝 Setting no chats HTML');
+                mainList.innerHTML = `
+                    <div class="no-chats">
+                        <i class="fas fa-comments"></i>
+                        <span>No chats yet</span>
+                        <small>Start a new conversation!</small>
+                    </div>
+                `;
+            } else {
+                console.log(`📝 Setting chat items HTML for ${this.chatList.length} chats`);
+                
+                const chatItemsHTML = this.chatList.map(chat => `
+                    <div class="chat-history-item${chat.id === this.currentChatId ? ' active' : ''}" data-chat-id="${chat.id}">
+                        <div class="chat-actions">
+                            <button class="chat-action-btn export" title="Export Chat" data-action="export" data-chat-id="${chat.id}">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            <button class="chat-action-btn delete" title="Delete Chat" data-action="delete" data-chat-id="${chat.id}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                        <div class="chat-title">${this.escapeHtml(chat.title)}</div>
+                        <div class="chat-preview">${this.escapeHtml(chat.preview)}</div>
+                        <div class="chat-meta">
+                            <span class="chat-date">${this.formatDate(chat.updated_at)}</span>
+                            <span class="chat-message-count">${chat.message_count} msgs</span>
+                        </div>
+                    </div>
+                `).join('');
+                
+                console.log('📝 Generated HTML preview:', chatItemsHTML.substring(0, 200) + '...');
+                mainList.innerHTML = chatItemsHTML;
+            }
+            
+            // Simple event delegation - remove any existing listener first
+            if (this.chatHistoryClickHandler) {
+                mainList.removeEventListener('click', this.chatHistoryClickHandler);
+            }
+            
+            // Create and store the handler
+            this.chatHistoryClickHandler = (e) => {
+                const chatItem = e.target.closest('.chat-history-item');
+                const actionBtn = e.target.closest('.chat-action-btn');
+                
+                if (actionBtn) {
+                    e.stopPropagation();
+                    const action = actionBtn.dataset.action;
+                    const chatId = actionBtn.dataset.chatId;
+                    
+                    if (action === 'delete') {
+                        this.deleteChatById(chatId);
+                    } else if (action === 'export') {
+                        this.exportChatById(chatId);
+                    }
+                } else if (chatItem) {
+                    const chatId = chatItem.dataset.chatId;
+                    this.loadChatById(chatId);
+                }
+            };
+            
+            // Add the event listener
+            mainList.addEventListener('click', this.chatHistoryClickHandler);
+            
+            console.log('✅ Chat history display and event listeners updated');
+        } else {
+            console.error('❌ Main chat history container not found!');
+        }
+    }
+
+    async startNewChat() {
+        try {
+            // Clear current chat display
+            this.clearChat();
+            
+            // Create new chat on backend
+            const response = await fetch('/api/chats/new', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({})
+            });
+
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                this.currentChatId = data.chat_id;
+                this.updateChatHistorySelection();
+                this.updateExportButton();
+                this.showToast('New chat started', 'success');
+            }
+        } catch (error) {
+            console.error('Error starting new chat:', error);
+            this.showToast('Failed to start new chat', 'error');
+        }
+    }
+
+    async loadChatById(chatId) {
+        try {
+            const response = await fetch(`/api/chats/${chatId}`);
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                this.currentChatId = chatId;
+                this.displayChatMessages(data.chat.messages);
+                this.updateChatHistorySelection();
+                this.updateExportButton();
+                
+                // Switch to chat tab to show the loaded conversation
+                this.switchToTab('chat');
+                
+                this.showToast('Chat loaded', 'success');
+            }
+        } catch (error) {
+            console.error('Error loading chat:', error);
+            this.showToast('Failed to load chat', 'error');
+        }
+    }
+
+    switchToTab(tabName) {
+        // Update active tab
+        const navTabs = document.querySelectorAll('.nav-tab');
+        navTabs.forEach(tab => {
+            tab.classList.remove('active');
+            if (tab.dataset.tab === tabName) {
+                tab.classList.add('active');
+            }
+        });
+        
+        // Update visible content
+        const tabContents = document.querySelectorAll('.tab-content');
+        tabContents.forEach(content => {
+            content.classList.remove('active');
+            if (content.id === tabName + '-tab') {
+                content.classList.add('active');
+            }
+        });
+
+        // Load tab-specific data
+        this.loadTabData(tabName);
+    }
+
+    displayChatMessages(messages) {
+        this.chatMessages.innerHTML = '';
+        
+        if (messages.length === 0) {
+            this.chatMessages.innerHTML = `
+                <div class="welcome-message">
+                    <div class="message assistant">
+                        <div class="message-content">
+                            <p><strong>Chat loaded!</strong></p>
+                            <p>Continue the conversation below.</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        messages.forEach(msg => {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${msg.type}`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.innerHTML = this.formatMessage(msg.message);
+            
+            messageDiv.appendChild(contentDiv);
+            this.chatMessages.appendChild(messageDiv);
+        });
+
+        this.scrollChatToBottom();
+    }
+
+    async deleteChatById(chatId) {
+        const chat = this.chatList.find(c => c.id === chatId);
+        const chatTitle = chat ? chat.title : 'Unknown';
+        
+        if (!confirm(`Are you sure you want to delete "${chatTitle}"?`)) return;
+
+        try {
+            const response = await fetch(`/api/chats/${chatId}`, {
+                method: 'DELETE'
+            });
+
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                // Remove from local list
+                this.chatList = this.chatList.filter(c => c.id !== chatId);
+                
+                // Clear current chat if it was deleted
+                if (this.currentChatId === chatId) {
+                    this.clearChat();
+                }
+                
+                this.displayChatHistory();
+                this.showToast('Chat deleted successfully', 'success');
+            }
+        } catch (error) {
+            console.error('Error deleting chat:', error);
+            this.showToast('Failed to delete chat', 'error');
+        }
+    }
+
+    updateChatHistorySelection() {
+        // Update selection in both sidebar and main history tab
+        const chatItems = document.querySelectorAll('.chat-history-item');
+        chatItems.forEach(item => {
+            if (item.dataset.chatId === this.currentChatId) {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
+    }
+
+    updateExportButton() {
+        const exportBtn = document.getElementById('export-chat-btn');
+        if (exportBtn) {
+            if (this.currentChatId) {
+                exportBtn.style.display = 'inline-flex';
+            } else {
+                exportBtn.style.display = 'none';
+            }
+        }
+    }
+
+    async exportAllChats() {
+        if (this.chatList.length === 0) {
+            this.showToast('No chats to export', 'warning');
+            return;
+        }
+
+        if (!confirm(`Export all ${this.chatList.length} chats? This may take a moment.`)) {
+            return;
+        }
+
+        try {
+            // Export each chat individually
+            let successCount = 0;
+            let failCount = 0;
+
+            for (const chat of this.chatList) {
+                try {
+                    await this.exportChatById(chat.id);
+                    successCount++;
+                    
+                    // Small delay to prevent overwhelming the browser
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                } catch (error) {
+                    console.error(`Failed to export chat ${chat.id}:`, error);
+                    failCount++;
+                }
+            }
+
+            if (failCount === 0) {
+                this.showToast(`Successfully exported all ${successCount} chats`, 'success');
+            } else {
+                this.showToast(`Exported ${successCount} chats, ${failCount} failed`, 'warning');
+            }
+        } catch (error) {
+            console.error('Error exporting all chats:', error);
+            this.showToast('Failed to export chats', 'error');
+        }
+    }
+
+    // === Export Functionality ===
+
+    showExportModal() {
+        if (!this.currentChatId) {
+            this.showToast('No chat to export', 'warning');
+            return;
+        }
+
+        const modal = document.getElementById('export-modal');
+        const folderInput = document.getElementById('export-folder');
+        
+        if (modal) {
+            modal.style.display = 'flex';
+            
+            // Set saved folder path
+            if (folderInput && this.exportFolderPath) {
+                folderInput.value = this.exportFolderPath;
+            }
+        }
+    }
+
+    hideExportModal() {
+        const modal = document.getElementById('export-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    browseFolderPath() {
+        // For now, show a simple prompt. In a real app, you'd use a file dialog
+        const folderPath = prompt('Enter the folder path to save exports:', this.exportFolderPath);
+        
+        if (folderPath !== null) {
+            this.exportFolderPath = folderPath;
+            const folderInput = document.getElementById('export-folder');
+            if (folderInput) {
+                folderInput.value = folderPath;
+            }
+            
+            // Save to localStorage if user wants to remember
+            const rememberCheckbox = document.getElementById('remember-folder');
+            if (rememberCheckbox && rememberCheckbox.checked) {
+                localStorage.setItem('llmind_export_folder', folderPath);
+            }
+        }
+    }
+
+    async exportCurrentChat() {
+        if (!this.currentChatId) {
+            this.showToast('No chat to export', 'warning');
+            return;
+        }
+
+        // Save folder preference if checked
+        const rememberCheckbox = document.getElementById('remember-folder');
+        const folderInput = document.getElementById('export-folder');
+        
+        if (rememberCheckbox && rememberCheckbox.checked && folderInput) {
+            this.exportFolderPath = folderInput.value;
+            localStorage.setItem('llmind_export_folder', this.exportFolderPath);
+        }
+
+        try {
+            // Download the chat as markdown
+            const response = await fetch(`/api/chats/${this.currentChatId}/export`);
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                
+                // Get filename from response headers or use default
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = 'chat_export.md';
+                if (contentDisposition) {
+                    const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+                    if (filenameMatch) {
+                        filename = filenameMatch[1];
+                    }
+                }
+                
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                
+                this.hideExportModal();
+                this.showToast('Chat exported successfully', 'success');
+            } else {
+                throw new Error('Export failed');
+            }
+        } catch (error) {
+            console.error('Error exporting chat:', error);
+            this.showToast('Failed to export chat', 'error');
+        }
+    }
+
+    async exportChatById(chatId) {
+        try {
+            const response = await fetch(`/api/chats/${chatId}/export`);
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                
+                // Get filename from response headers
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = 'chat_export.md';
+                if (contentDisposition) {
+                    const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+                    if (filenameMatch) {
+                        filename = filenameMatch[1];
+                    }
+                }
+                
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                
+                this.showToast('Chat exported successfully', 'success');
+            } else {
+                throw new Error('Export failed');
+            }
+        } catch (error) {
+            console.error('Error exporting chat:', error);
+            this.showToast('Failed to export chat', 'error');
+        }
+    }
+
+    // === Utility Functions ===
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    formatDate(dateString) {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffTime = Math.abs(now - date);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 1) {
+            return 'Today';
+        } else if (diffDays === 2) {
+            return 'Yesterday';
+        } else if (diffDays <= 7) {
+            return `${diffDays} days ago`;
+        } else {
+            return date.toLocaleDateString();
+        }
+    }
+
+    // === Voice Controls ===
+    setupVoiceControls() {
+        const recordBtn = document.getElementById('record-btn');
+        if (recordBtn) {
+            recordBtn.addEventListener('mousedown', () => this.startRecording());
+            recordBtn.addEventListener('mouseup', () => this.stopRecording());
+            recordBtn.addEventListener('mouseleave', () => this.stopRecording());
+        }
+    }
+
+    toggleVoiceMode() {
+        this.isVoiceModeActive = !this.isVoiceModeActive;
+        const voiceControls = document.getElementById('voice-controls');
+        const voiceToggle = document.getElementById('voice-toggle');
+        
+        if (this.isVoiceModeActive) {
+            voiceControls.style.display = 'block';
+            voiceToggle.innerHTML = '<i class="fas fa-keyboard"></i> Text Mode';
+            this.showToast('Voice mode activated', 'info');
+        } else {
+            voiceControls.style.display = 'none';
+            voiceToggle.innerHTML = '<i class="fas fa-microphone"></i> Voice Mode';
+            this.showToast('Text mode activated', 'info');
+        }
+    }
+
+    async startRecording() {
+        if (this.isRecording) return;
+        
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            this.mediaRecorder = new MediaRecorder(stream);
+            this.audioChunks = [];
+            
+            this.mediaRecorder.ondataavailable = (event) => {
+                this.audioChunks.push(event.data);
+            };
+            
+            this.mediaRecorder.onstop = () => {
+                this.processRecording();
+            };
+            
+            this.mediaRecorder.start();
+            this.isRecording = true;
+            
+            // Update UI
+            const recordBtn = document.getElementById('record-btn');
+            const voiceStatus = document.getElementById('voice-status');
+            recordBtn.classList.add('recording');
+            voiceStatus.textContent = 'Recording... Release to send';
+            
+        } catch (error) {
+            console.error('Error starting recording:', error);
+            this.showToast('Could not access microphone', 'error');
+        }
+    }
+
+    stopRecording() {
+        if (!this.isRecording || !this.mediaRecorder) return;
+        
+        this.mediaRecorder.stop();
+        this.isRecording = false;
+        
+        // Update UI
+        const recordBtn = document.getElementById('record-btn');
+        const voiceStatus = document.getElementById('voice-status');
+        recordBtn.classList.remove('recording');
+        voiceStatus.textContent = 'Processing...';
+        
+        // Stop all tracks
+        this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+    }
+
+    async processRecording() {
+        if (this.audioChunks.length === 0) return;
+        
+        try {
+            const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
+            const audioData = await this.blobToBase64(audioBlob);
+            
+            // Send to WebSocket for transcription
+            this.websocket.send(JSON.stringify({
+                type: 'voice',
+                audio: audioData.split(',')[1] // Remove data URL prefix
+            }));
+            
+        } catch (error) {
+            console.error('Error processing recording:', error);
+            this.showToast('Error processing audio', 'error');
+        }
+        
+        // Reset UI
+        const voiceStatus = document.getElementById('voice-status');
+        voiceStatus.textContent = 'Hold to Record';
+    }
+
+    handleVoiceTranscription(text) {
+        const voiceStatus = document.getElementById('voice-status');
+        voiceStatus.textContent = 'Hold to Record';
+        
+        if (text && text !== 'Speech recognition not available') {
+            // Add transcribed text to chat input
+            const chatInput = document.getElementById('chat-input');
+            chatInput.value = text;
+            this.autoResizeTextarea(chatInput);
+            
+            // Automatically send the message
+            this.sendMessage();
+        } else {
+            this.showToast('Could not transcribe audio', 'error');
+        }
+    }
+
+    blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    }
+
+    async loadVoices() {
+        console.log('🎤 Loading voices...');
+        try {
+            const response = await fetch('/api/audio/voices');
+            console.log('📡 Voices response status:', response.status);
+            const data = await response.json();
+            console.log('📡 Voices data:', data);
+            
+            if (data.status === 'success') {
+                this.updateVoiceSelect(data.voices);
+                console.log('✅ Voices loaded successfully');
+            } else {
+                console.error('❌ Voices API returned error:', data);
+                this.showToast('Failed to load voices: ' + (data.message || 'Unknown error'), 'error');
+            }
+        } catch (error) {
+            console.error('❌ Error loading voices:', error);
+            this.showToast('Failed to load voices', 'error');
+        }
+    }
+
+    updateVoiceSelect(voices) {
+        const voiceSelect = document.getElementById('voice-select');
+        if (!voiceSelect) return;
+        
+        voiceSelect.innerHTML = '';
+        voices.forEach(voice => {
+            const option = document.createElement('option');
+            option.value = voice.name;
+            option.textContent = `${voice.name} (${voice.language})`;
+            voiceSelect.appendChild(option);
+        });
+    }
+
+    async testVoice() {
+        const voiceSelect = document.getElementById('voice-select');
+        const selectedVoice = voiceSelect ? voiceSelect.value : null;
+        
+        try {
+            const formData = new FormData();
+            formData.append('text', 'Hello! This is a test of the LLMind voice system.');
+            if (selectedVoice) formData.append('voice', selectedVoice);
+            
+            const response = await fetch('/api/audio/tts', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            if (data.status === 'success' && data.audio) {
+                this.playTTSAudio(data.audio);
+                this.showToast('Voice test successful', 'success');
+            }
+        } catch (error) {
+            console.error('Error testing voice:', error);
+            this.showToast('Voice test failed', 'error');
+        }
+    }
+
+    playTTSAudio(audioData) {
+        try {
+            const audio = new Audio(`data:audio/wav;base64,${audioData}`);
+            audio.play();
+        } catch (error) {
+            console.error('Error playing audio:', error);
+        }
+    }
+
+    // === File Upload ===
+    setupFileUpload() {
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const folderInput = document.getElementById('folder-input');
+        
+        if (!uploadArea || !fileInput) return;
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('drag-over');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+            
+            const files = Array.from(e.dataTransfer.files);
+            this.uploadFiles(files);
+        });
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            this.uploadFiles(files);
+        });
+
+        // Folder input change
+        if (folderInput) {
+            // Check if browser supports directory upload
+            if ('webkitdirectory' in folderInput) {
+                folderInput.addEventListener('change', (e) => {
+                    const files = Array.from(e.target.files);
+                    this.uploadFolder(files);
+                });
+            } else {
+                // Hide folder button if not supported
+                const folderBtn = document.querySelector('button[onclick*="folder-input"]');
+                if (folderBtn) {
+                    folderBtn.style.display = 'none';
+                    console.warn('Folder upload not supported in this browser');
+                }
+            }
+        }
+    }
+
+    async uploadFiles(files) {
+        if (files.length === 0) return;
+        
+        this.showLoading();
+        
+        try {
+            const formData = new FormData();
+            files.forEach(file => {
+                formData.append('files', file);
+            });
+            
+            const response = await fetch('/api/documents/upload', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                this.showToast(`Successfully uploaded ${files.length} file(s)`, 'success');
+                this.loadDocuments();
+                
+                // Update document stats
+                this.updateDocumentStats();
+            } else {
+                throw new Error(data.message || 'Upload failed');
+            }
+            
+        } catch (error) {
+            console.error('Upload error:', error);
+            this.showToast('Upload failed: ' + error.message, 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    async uploadFolder(files) {
+        if (files.length === 0) {
+            this.showToast('No files selected for folder upload', 'warning');
+            return;
+        }
+        
+        console.log(`Starting folder upload with ${files.length} files`);
+        
+        // Show progress
+        this.showUploadProgress();
+        this.updateProgress(0, `Preparing to process ${files.length} files...`);
+        
+        try {
+            const formData = new FormData();
+            files.forEach(file => {
+                formData.append('files', file);
+            });
+            
+            this.updateProgress(25, 'Uploading folder contents...');
+            
+            const response = await fetch('/api/documents/upload-folder', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                this.updateProgress(100, 'Processing complete!');
+                
+                const stats = data.stats;
+                let message = `Folder upload complete!\n`;
+                message += `✅ Successful: ${stats.successful_files} files\n`;
+                message += `📝 Total chunks: ${stats.total_chunks}\n`;
+                
+                if (stats.failed_files > 0) {
+                    message += `❌ Failed: ${stats.failed_files} files\n`;
+                }
+                if (stats.skipped_files > 0) {
+                    message += `⏭️ Skipped: ${stats.skipped_files} unsupported files`;
+                }
+                
+                this.showToast(message, stats.failed_files === 0 ? 'success' : 'warning');
+                this.loadDocuments();
+                this.updateDocumentStats();
+                
+                // Show detailed results if there were failures
+                if (data.errors && data.errors.length > 0) {
+                    console.log('Failed files:', data.errors);
+                }
+                
+            } else {
+                throw new Error(data.message || 'Folder upload failed');
+            }
+            
+        } catch (error) {
+            console.error('Folder upload error:', error);
+            this.showToast('Folder upload failed: ' + error.message, 'error');
+        } finally {
+            setTimeout(() => {
+                this.hideUploadProgress();
+            }, 2000);
+        }
+    }
+
+    showUploadProgress() {
+        const progressDiv = document.getElementById('upload-progress');
+        if (progressDiv) {
+            progressDiv.style.display = 'block';
+        }
+    }
+
+    hideUploadProgress() {
+        const progressDiv = document.getElementById('upload-progress');
+        if (progressDiv) {
+            progressDiv.style.display = 'none';
+        }
+    }
+
+    updateProgress(percent, text) {
+        const progressFill = document.getElementById('progress-fill');
+        const progressText = document.getElementById('progress-text');
+        
+        if (progressFill) {
+            progressFill.style.width = `${percent}%`;
+        }
+        if (progressText) {
+            progressText.textContent = text;
+        }
+    }
+
+    async loadDocuments() {
+        console.log('📄 Loading documents...');
+        try {
+            const response = await fetch('/api/documents');
+            console.log('📡 Documents response status:', response.status);
+            const data = await response.json();
+            console.log('📡 Documents data:', data);
+            
+            if (data.status === 'success') {
+                // API returns 'documents' not 'processed_documents'
+                this.updateDocumentsList(data.documents || []);
+                this.updateDocumentStats();
+                console.log('✅ Documents loaded successfully');
+            } else {
+                console.error('❌ Documents API returned error:', data);
+                this.showToast('Failed to load documents: ' + (data.message || 'Unknown error'), 'error');
+            }
+        } catch (error) {
+            console.error('❌ Error loading documents:', error);
+            this.showToast('Failed to load documents', 'error');
+        }
+    }
+
+    updateDocumentsList(documents) {
+        const container = document.getElementById('documents-container');
+        if (!container) return;
+        
+        // Ensure documents is an array
+        if (!documents || !Array.isArray(documents) || documents.length === 0) {
+            container.innerHTML = '<p>No documents uploaded yet.</p>';
+            return;
+        }
+        
+        try {
+            container.innerHTML = documents.map(doc => `
+                <div class="document-item">
+                    <div class="document-info">
+                        <h4>${this.escapeHtml(doc.filename || 'Unknown')}</h4>
+                        <p>${doc.chunk_count || 0} chunks • ${doc.text_length || 0} characters</p>
+                        <span class="extension">${doc.extension || 'unknown'}</span>
+                    </div>
+                    <button class="btn btn-secondary delete-doc" data-hash="${doc.file_hash || ''}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('❌ Error generating document HTML:', error);
+            container.innerHTML = '<p>Error displaying documents. Check console for details.</p>';
+        }
+        
+        // Add delete handlers
+        container.querySelectorAll('.delete-doc').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.deleteDocument(btn.dataset.hash);
+            });
+        });
+    }
+
+    async deleteDocument(fileHash) {
+        if (!confirm('Are you sure you want to delete this document?')) return;
+        
+        try {
+            const response = await fetch(`/api/documents/${fileHash}`, {
+                method: 'DELETE'
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                this.showToast('Document deleted successfully', 'success');
+                this.loadDocuments();
+            } else {
+                throw new Error(data.message || 'Delete failed');
+            }
+        } catch (error) {
+            console.error('Delete error:', error);
+            this.showToast('Delete failed: ' + error.message, 'error');
+        }
+    }
+
+    async updateDocumentStats() {
+        try {
+            const response = await fetch('/api/performance');
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                // Update stats in documents tab
+                const statCards = document.querySelectorAll('.stat-card h3');
+                if (statCards.length >= 3) {
+                    statCards[0].textContent = data.document_count;
+                    statCards[1].textContent = data.vector_store.total_vectors;
+                    statCards[2].textContent = data.vector_store.memory_usage_mb.toFixed(1);
+                }
+            }
+        } catch (error) {
+            console.error('Error updating stats:', error);
+        }
+    }
+
+    // === Model Management ===
+    setupModelManagement() {
+        // Download model buttons - use delegation to handle dynamic buttons
+        document.addEventListener('click', (e) => {
+            // Check if clicked element or its parent has the download-model class
+            const downloadBtn = e.target.closest('.download-model');
+            if (downloadBtn) {
+                const modelName = downloadBtn.dataset.model;
+                console.log('📥 Download button clicked for model:', modelName);
+                if (modelName) {
+                    this.downloadModel(modelName);
+                } else {
+                    console.error('❌ No model name found on button');
+                    this.showToast('Error: No model name specified', 'error');
+                }
+            }
+            
+            // Check if clicked element or its parent has the switch-model class
+            const switchBtn = e.target.closest('.switch-model');
+            if (switchBtn) {
+                const modelName = switchBtn.dataset.model;
+                console.log('🔄 Switch button clicked for model:', modelName);
+                if (modelName) {
+                    this.switchModel(modelName);
+                } else {
+                    console.error('❌ No model name found on button');
+                    this.showToast('Error: No model name specified', 'error');
+                }
+            }
+        });
+    }
+
+    async downloadModel(modelName) {
+        console.log('🚀 Starting model download for:', modelName);
+        this.showLoading();
+        
+        try {
+            const formData = new FormData();
+            formData.append('model_name', modelName);
+            
+            console.log('📤 Sending download request...');
+            const response = await fetch('/api/models/download', {
+                method: 'POST',
+                body: formData
+            });
+            
+            console.log('📥 Response status:', response.status);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('📦 Response data:', data);
+            
+            if (data.status === 'success') {
+                this.showToast(`Model ${modelName} downloaded successfully`, 'success');
+                this.loadModels();
+            } else {
+                throw new Error(data.message || data.detail || 'Download failed');
+            }
+        } catch (error) {
+            console.error('❌ Model download error:', error);
+            console.error('Stack trace:', error.stack);
+            
+            // Provide more helpful error messages
+            let errorMessage = 'Download failed: ';
+            if (error.message.includes('Failed to fetch')) {
+                errorMessage += 'Could not connect to server';
+            } else if (error.message.includes('400')) {
+                errorMessage += 'Invalid model name';
+            } else if (error.message.includes('500')) {
+                errorMessage += 'Server error - check backend logs';
+            } else {
+                errorMessage += error.message;
+            }
+            
+            this.showToast(errorMessage, 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    async switchModel(modelName) {
+        this.showLoading();
+        
+        try {
+            const formData = new FormData();
+            formData.append('model_name', modelName);
+            
+            const response = await fetch('/api/models/switch', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                this.showToast(`Switched to ${modelName}`, 'success');
+                this.updateCurrentModelInfo();
+            } else {
+                throw new Error(data.message || 'Switch failed');
+            }
+        } catch (error) {
+            console.error('Model switch error:', error);
+            this.showToast('Switch failed: ' + error.message, 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    async downloadModel(modelName) {
+        console.log('📥 Downloading model:', modelName);
+        this.showLoading();
+        
+        try {
+            const formData = new FormData();
+            formData.append('model_name', modelName);
+            
+            const response = await fetch('/api/models/download', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            console.log('📥 Download response:', data);
+            
+            if (data.status === 'success') {
+                this.showToast(`Downloaded ${modelName}`, 'success');
+                // Reload models to update the grid
+                await this.loadModels();
+            } else {
+                console.error('❌ Download API error:', data);
+                throw new Error(data.message || data.detail || 'Download failed');
+            }
+        } catch (error) {
+            console.error('❌ Model download error:', error);
+            this.showToast('Download failed: ' + error.message, 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    async loadModels() {
+        console.log('🧠 Loading models...');
+        try {
+            const response = await fetch('/api/models');
+            console.log('📡 Models response status:', response.status);
+            const data = await response.json();
+            console.log('📡 Models data:', data);
+            
+            if (data.status === 'success') {
+                this.updateCurrentModelInfo(data.current_model);
+                this.updateModelsGrid(data.models);
+                console.log('✅ Models loaded successfully');
+            } else {
+                console.error('❌ Models API returned error:', data);
+                this.showToast('Failed to load models: ' + (data.message || 'Unknown error'), 'error');
+            }
+        } catch (error) {
+            console.error('❌ Error loading models:', error);
+            this.showToast('Failed to load models', 'error');
+        }
+    }
+
+    updateCurrentModelInfo(modelInfo) {
+        console.log('🔧 Updating current model info:', modelInfo);
+        if (!modelInfo) return;
+        
+        const nameElement = document.getElementById('current-model-name');
+        const statusElement = document.getElementById('current-model-status');
+        const tokensSecElement = document.getElementById('tokens-per-sec');
+        const memoryElement = document.getElementById('memory-usage');
+        
+        if (nameElement) {
+            nameElement.textContent = modelInfo.name || 'None';
+            console.log('✅ Updated model name element');
+        } else {
+            console.log('❌ Model name element not found');
+        }
+        
+        if (statusElement) {
+            statusElement.textContent = modelInfo.status || 'Not loaded';
+            console.log('✅ Updated model status element');
+        } else {
+            console.log('❌ Model status element not found');
+        }
+        
+        // Update performance stats if available
+        if (tokensSecElement && modelInfo.total_tokens !== undefined) {
+            tokensSecElement.textContent = modelInfo.total_tokens || '0';
+        }
+        
+        if (memoryElement && modelInfo.cached_models !== undefined) {
+            memoryElement.textContent = `${modelInfo.cached_models} model(s) cached`;
+        }
+    }
+
+    updateModelsGrid(models) {
+        console.log('📊 Updating models grid with', models.length, 'models');
+        
+        const modelsGrid = document.getElementById('models-grid');
+        if (!modelsGrid) {
+            console.error('❌ Models grid element not found');
+            return;
+        }
+        
+        modelsGrid.innerHTML = models.map(model => `
+            <div class="model-card" data-model-name="${model.name}">
+                <div class="model-header">
+                    <h4>${model.name.split('/').pop()}</h4>
+                    <span class="model-type ${model.type}">${model.type}</span>
+                </div>
+                <div class="model-info">
+                    <p>${model.description || 'No description'}</p>
+                    <div class="model-meta">
+                        <span>Size: ${model.size}</span>
+                        <span class="status ${model.status}">${model.status}</span>
+                    </div>
+                </div>
+                <div class="model-actions">
+                    ${model.status === 'downloaded' ? 
+                        `<button class="btn btn-primary switch-model" data-model="${model.name}">
+                            <i class="fas fa-play"></i> Use Model
+                        </button>` :
+                        `<button class="btn btn-secondary download-model" data-model="${model.name}">
+                            <i class="fas fa-download"></i> Download
+                        </button>`
+                    }
+                </div>
+            </div>
+        `).join('');
+        
+        // Add event listeners for the buttons
+        const switchButtons = modelsGrid.querySelectorAll('.switch-model');
+        switchButtons.forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const modelName = e.target.closest('button').dataset.model;
+                await this.switchModel(modelName);
+            });
+        });
+        
+        const downloadButtons = modelsGrid.querySelectorAll('.download-model');
+        downloadButtons.forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const modelName = e.target.closest('button').dataset.model;
+                await this.downloadModel(modelName);
+            });
+        });
+        
+        console.log('✅ Models grid updated successfully');
+    }
+
+    // === Settings ===
+    async saveSettings() {
+        const settings = {
+            temperature: parseFloat(document.getElementById('temperature').value),
+            max_tokens: parseInt(document.getElementById('max-tokens').value),
+            chunk_size: parseInt(document.getElementById('chunk-size').value),
+            top_k: parseInt(document.getElementById('top-k').value)
+        };
+        
+        try {
+            const response = await fetch('/api/settings/update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(settings)
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                // Also save prompt configuration
+                await this.savePromptConfig();
+                this.showToast('Settings saved successfully', 'success');
+            } else {
+                throw new Error(data.message || 'Save failed');
+            }
+        } catch (error) {
+            console.error('Settings save error:', error);
+            this.showToast('Save failed: ' + error.message, 'error');
+        }
+    }
+
+    // === Prompt Configuration ===
+    async setupPromptConfiguration() {
+        console.log('🎨 Setting up prompt configuration...');
+        
+        // Load current configuration
+        await this.loadPromptConfig();
+        
+        // Setup event listeners
+        const formatSelect = document.getElementById('prompt-format');
+        const systemPrompt = document.getElementById('system-prompt');
+        const customTemplate = document.getElementById('custom-template');
+        const testButton = document.getElementById('test-prompt');
+        
+        if (formatSelect) {
+            formatSelect.addEventListener('change', () => {
+                this.updatePromptFormat();
+                this.updatePromptPreview();
+            });
+        }
+        
+        if (systemPrompt) {
+            systemPrompt.addEventListener('input', () => this.updatePromptPreview());
+        }
+        
+        if (customTemplate) {
+            customTemplate.addEventListener('input', () => this.updatePromptPreview());
+        }
+        
+        if (testButton) {
+            testButton.addEventListener('click', () => this.testPromptConfig());
+        }
+        
+        // Load presets
+        await this.loadPromptPresets();
+        
+        // Initial preview update
+        this.updatePromptPreview();
+    }
+
+    async loadPromptConfig() {
+        try {
+            const response = await fetch('/api/prompts/config');
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                const config = data.config;
+                
+                // Update UI
+                const formatSelect = document.getElementById('prompt-format');
+                const systemPrompt = document.getElementById('system-prompt');
+                const customTemplate = document.getElementById('custom-template');
+                
+                if (formatSelect) formatSelect.value = config.prompt_format;
+                if (systemPrompt) systemPrompt.value = config.system_prompt;
+                if (customTemplate) customTemplate.value = config.custom_template;
+                
+                this.updatePromptFormat();
+                this.updatePromptPreview();
+            }
+        } catch (error) {
+            console.error('Error loading prompt config:', error);
+        }
+    }
+
+    async savePromptConfig() {
+        try {
+            const formatSelect = document.getElementById('prompt-format');
+            const systemPrompt = document.getElementById('system-prompt');
+            const customTemplate = document.getElementById('custom-template');
+            
+            const config = {
+                prompt_format: formatSelect?.value || 'qa',
+                system_prompt: systemPrompt?.value || 'You are a helpful AI assistant.',
+                custom_template: customTemplate?.value || 'Q: {user_message}\nA:'
+            };
+            
+            const response = await fetch('/api/prompts/config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(config)
+            });
+            
+            const data = await response.json();
+            
+            if (data.status !== 'success') {
+                throw new Error(data.message || 'Failed to save prompt config');
+            }
+            
+        } catch (error) {
+            console.error('Error saving prompt config:', error);
+            throw error;
+        }
+    }
+
+    updatePromptFormat() {
+        const formatSelect = document.getElementById('prompt-format');
+        const customSection = document.getElementById('custom-template-section');
+        
+        if (formatSelect && customSection) {
+            if (formatSelect.value === 'custom') {
+                customSection.style.display = 'block';
+            } else {
+                customSection.style.display = 'none';
+            }
+        }
+    }
+
+    updatePromptPreview() {
+        const formatSelect = document.getElementById('prompt-format');
+        const systemPrompt = document.getElementById('system-prompt');
+        const customTemplate = document.getElementById('custom-template');
+        const previewDiv = document.getElementById('prompt-preview');
+        
+        if (!previewDiv) return;
+        
+        const format = formatSelect?.value || 'qa';
+        const system = systemPrompt?.value || 'You are a helpful AI assistant.';
+        const template = customTemplate?.value || 'Q: {user_message}\nA:';
+        const sampleMessage = 'Hello, how are you?';
+        
+        let preview = '';
+        
+        switch (format) {
+            case 'qa':
+                preview = `Q: ${sampleMessage}\nA:`;
+                break;
+            case 'assistant':
+                preview = `${system}\n\nHuman: ${sampleMessage}\nAssistant:`;
+                break;
+            case 'instruction':
+                preview = `<s>[INST] ${system} ${sampleMessage} [/INST]`;
+                break;
+            case 'conversation':
+                preview = `### System: ${system}\n### User: ${sampleMessage}\n### Assistant:`;
+                break;
+            case 'custom':
+                try {
+                    preview = template
+                        .replace('{user_message}', sampleMessage)
+                        .replace('{context}', '[Document context would go here]')
+                        .replace('{system_prompt}', system);
+                } catch (e) {
+                    preview = 'Invalid template format';
+                }
+                break;
+            default:
+                preview = `Q: ${sampleMessage}\nA:`;
+        }
+        
+        previewDiv.innerHTML = preview.replace(/\n/g, '<br>');
+    }
+
+    async testPromptConfig() {
+        try {
+            const formatSelect = document.getElementById('prompt-format');
+            const systemPrompt = document.getElementById('system-prompt');
+            const customTemplate = document.getElementById('custom-template');
+            const testButton = document.getElementById('test-prompt');
+            
+            if (testButton) {
+                testButton.disabled = true;
+                testButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
+            }
+            
+            const testData = {
+                message: 'Hello, how are you?',
+                format: formatSelect?.value || 'qa',
+                system_prompt: systemPrompt?.value || 'You are a helpful AI assistant.',
+                custom_template: customTemplate?.value || 'Q: {user_message}\nA:'
+            };
+            
+            const response = await fetch('/api/prompts/test', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(testData)
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                this.showToast(`Test Response: "${data.test_response}"`, 'success', 5000);
+            } else {
+                throw new Error(data.message || 'Test failed');
+            }
+            
+        } catch (error) {
+            console.error('Prompt test error:', error);
+            this.showToast('Test failed: ' + error.message, 'error');
+        } finally {
+            const testButton = document.getElementById('test-prompt');
+            if (testButton) {
+                testButton.disabled = false;
+                testButton.innerHTML = '<i class="fas fa-play"></i> Test Prompt';
+            }
+        }
+    }
+
+    async loadPromptPresets() {
+        try {
+            const response = await fetch('/api/prompts/presets');
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                // Store presets for later use
+                this.promptPresets = data.presets;
+                console.log('✅ Loaded prompt presets:', Object.keys(data.presets));
+            }
+        } catch (error) {
+            console.error('Error loading prompt presets:', error);
+        }
+    }
+
+    // === Performance Monitoring ===
+    async refreshPerformanceMetrics() {
+        console.log('📊 Loading performance metrics...');
+        try {
+            const response = await fetch('/api/performance');
+            console.log('📡 Performance response status:', response.status);
+            const data = await response.json();
+            console.log('📡 Performance data:', data);
+            
+            if (data.status === 'success') {
+                this.updatePerformanceDisplay(data);
+                console.log('✅ Performance metrics loaded successfully');
+            } else {
+                console.error('❌ Performance API returned error:', data);
+                this.showToast('Failed to load performance metrics: ' + (data.message || 'Unknown error'), 'error');
+            }
+        } catch (error) {
+            console.error('❌ Error refreshing metrics:', error);
+            this.showToast('Failed to load performance metrics', 'error');
+        }
+    }
+
+    updatePerformanceDisplay(data) {
+        // Update tokens per second
+        const tokensSecElement = document.getElementById('perf-tokens-sec');
+        if (tokensSecElement) {
+            tokensSecElement.textContent = data.model_performance.tokens_per_second.toFixed(1);
+        }
+        
+        // Update response time
+        const responseTimeElement = document.getElementById('perf-response-time');
+        if (responseTimeElement) {
+            responseTimeElement.textContent = data.model_performance.avg_response_time.toFixed(3) + 's';
+        }
+        
+        // Update memory usage
+        const memoryElement = document.getElementById('perf-memory');
+        if (memoryElement) {
+            memoryElement.textContent = data.model_performance.memory_usage.used_gb.toFixed(1) + 'GB';
+        }
+    }
+
+    // === Utility Functions ===
+    showToast(message, type = 'info') {
+        let container = document.getElementById('toast-container');
+        
+        // Create toast container if it doesn't exist
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toast-container';
+            container.className = 'toast-container';
+            document.body.appendChild(container);
+        }
+        
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        
+        container.appendChild(toast);
+        
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 5000);
+        
+        // Remove on click
+        toast.addEventListener('click', () => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        });
+    }
+
+    showLoading() {
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) {
+            overlay.classList.add('show');
+        }
+    }
+
+    hideLoading() {
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) {
+            overlay.classList.remove('show');
+        }
+    }
+
+    // === MLX Profiling Functions ===
+    
+    setupProfilingControls() {
+        console.log('🧪 Setting up profiling controls...');
+        
+        // Run profiling button
+        const runProfilingBtn = document.getElementById('run-profiling');
+        if (runProfilingBtn) {
+            runProfilingBtn.addEventListener('click', () => this.runProfiling());
+        }
+        
+        // Compare models button
+        const compareModelsBtn = document.getElementById('compare-models');
+        if (compareModelsBtn) {
+            compareModelsBtn.addEventListener('click', () => this.compareModels());
+        }
+        
+        // Optimization guide button
+        const optimizationGuideBtn = document.getElementById('optimization-guide');
+        if (optimizationGuideBtn) {
+            optimizationGuideBtn.addEventListener('click', () => this.showOptimizationGuide());
+        }
+        
+        // Close guide modal
+        const closeGuideBtn = document.getElementById('close-guide');
+        if (closeGuideBtn) {
+            closeGuideBtn.addEventListener('click', () => this.hideOptimizationGuide());
+        }
+        
+        // Result tab switching
+        const resultTabBtns = document.querySelectorAll('.tab-btn[data-result-tab]');
+        resultTabBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const tab = e.target.closest('.tab-btn').dataset.resultTab;
+                this.switchResultTab(tab);
+            });
+        });
+        
+        // Download report
+        const downloadReportBtn = document.getElementById('download-report');
+        if (downloadReportBtn) {
+            downloadReportBtn.addEventListener('click', () => this.downloadReport());
+        }
+        
+        // Refresh charts
+        const refreshChartsBtn = document.getElementById('refresh-charts');
+        if (refreshChartsBtn) {
+            refreshChartsBtn.addEventListener('click', () => this.refreshCharts());
+        }
+    }
+    
+    async runProfiling() {
+        console.log('🚀 Starting MLX profiling...');
+        
+        const statusDiv = document.getElementById('profiling-status');
+        const resultsDiv = document.getElementById('profiling-results');
+        const modelSelect = document.getElementById('profiling-model');
+        const quickModeCheck = document.getElementById('quick-mode');
+        
+        // Show loading status
+        statusDiv.style.display = 'block';
+        resultsDiv.style.display = 'none';
+        
+        try {
+            const requestData = {
+                model_name: modelSelect.value || null,
+                quick_mode: quickModeCheck.checked
+            };
+            
+            const response = await fetch('/api/profiling/run', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestData)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                this.displayProfilingResults(data);
+                statusDiv.style.display = 'none';
+                resultsDiv.style.display = 'block';
+                
+                this.showNotification('✅ Profiling completed successfully!', 'success');
+            } else {
+                throw new Error(data.message || 'Profiling failed');
+            }
+            
+        } catch (error) {
+            console.error('Profiling error:', error);
+            statusDiv.style.display = 'none';
+            this.showNotification(`❌ Profiling failed: ${error.message}`, 'error');
+        }
+    }
+    
+    displayProfilingResults(data) {
+        console.log('📊 Displaying profiling results:', data);
+        
+        // Display summary
+        this.displayResultsSummary(data.analysis.performance_summary, data.system_info);
+        
+        // Display metrics
+        this.displayMetricsGrid(data.profiling_results);
+        
+        // Display optimization configs
+        this.displayOptimizationConfigs(data.optimization_configs);
+        
+        // Display analysis
+        this.displayAnalysisResults(data.analysis);
+        
+        // Display charts
+        this.displayCharts(data.plots_url);
+        
+        // Store data for download
+        this.currentProfilingData = data;
+    }
+    
+    displayResultsSummary(summary, systemInfo) {
+        const summaryGrid = document.getElementById('summary-grid');
+        if (!summaryGrid) return;
+        
+        const avgTps = summary.avg_tokens_per_second || 0;
+        const avgMemory = summary.avg_memory_usage || 0;
+        const avgGpu = summary.avg_gpu_utilization || 0;
+        const avgTime = summary.avg_total_time || 0;
+        
+        summaryGrid.innerHTML = `
+            <div class="summary-card">
+                <h5>Performance</h5>
+                <div class="value">${avgTps.toFixed(1)}<span class="unit">tok/s</span></div>
+            </div>
+            <div class="summary-card">
+                <h5>Memory Usage</h5>
+                <div class="value">${avgMemory.toFixed(1)}<span class="unit">GB</span></div>
+            </div>
+            <div class="summary-card">
+                <h5>GPU Utilization</h5>
+                <div class="value">${avgGpu.toFixed(0)}<span class="unit">%</span></div>
+            </div>
+            <div class="summary-card">
+                <h5>Response Time</h5>
+                <div class="value">${avgTime.toFixed(2)}<span class="unit">s</span></div>
+            </div>
+        `;
+    }
+    
+    displayMetricsGrid(profilingResults) {
+        const metricsGrid = document.getElementById('metrics-grid');
+        if (!metricsGrid) return;
+        
+        let html = '';
+        
+        for (const [testName, testData] of Object.entries(profilingResults)) {
+            const results = testData.results || [];
+            const avgTps = results.length > 0 ? 
+                results.reduce((sum, r) => sum + r.tokens_per_second, 0) / results.length : 0;
+            const avgTime = results.length > 0 ? 
+                results.reduce((sum, r) => sum + r.total_time, 0) / results.length : 0;
+            const avgMemory = results.length > 0 ? 
+                results.reduce((sum, r) => sum + r.memory_usage.used_gb, 0) / results.length : 0;
+            
+            html += `
+                <div class="metric-detail">
+                    <h5>${testData.prompt}</h5>
+                    <div class="metric-row">
+                        <span class="metric-label">Avg Tokens/Sec:</span>
+                        <span class="metric-value">${avgTps.toFixed(1)}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Avg Time:</span>
+                        <span class="metric-value">${avgTime.toFixed(2)}s</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Memory Usage:</span>
+                        <span class="metric-value">${avgMemory.toFixed(1)}GB</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Runs:</span>
+                        <span class="metric-value">${results.length}</span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        metricsGrid.innerHTML = html;
+    }
+    
+    displayOptimizationConfigs(configs) {
+        const configsDiv = document.getElementById('optimization-configs');
+        if (!configsDiv) return;
+        
+        // Find best configuration
+        let bestConfig = null;
+        let bestTps = 0;
+        
+        for (const [name, config] of Object.entries(configs)) {
+            if (config.tokens_per_second > bestTps) {
+                bestTps = config.tokens_per_second;
+                bestConfig = name;
+            }
+        }
+        
+        let html = '';
+        
+        for (const [name, config] of Object.entries(configs)) {
+            const isBest = name === bestConfig;
+            
+            html += `
+                <div class="config-card${isBest ? ' best' : ''}">
+                    <h5>${name.replace('_', ' ').toUpperCase()}</h5>
+                    <div class="metric-row">
+                        <span class="metric-label">Tokens/Sec:</span>
+                        <span class="metric-value">${config.tokens_per_second.toFixed(1)}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Total Time:</span>
+                        <span class="metric-value">${config.total_time.toFixed(2)}s</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Temperature:</span>
+                        <span class="metric-value">${config.temperature}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Max Tokens:</span>
+                        <span class="metric-value">${config.max_tokens}</span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        configsDiv.innerHTML = html;
+    }
+    
+    displayAnalysisResults(analysis) {
+        const analysisDiv = document.getElementById('analysis-results');
+        if (!analysisDiv) return;
+        
+        let html = '';
+        
+        // Bottlenecks section
+        if (analysis.bottleneck_analysis && analysis.bottleneck_analysis.length > 0) {
+            html += `
+                <div class="analysis-section">
+                    <h5><i class="fas fa-exclamation-triangle"></i> Identified Bottlenecks</h5>
+            `;
+            
+            analysis.bottleneck_analysis.forEach(bottleneck => {
+                const severity = bottleneck.severity.toLowerCase();
+                html += `
+                    <div class="bottleneck-item ${severity}">
+                        <i class="severity-icon ${severity} fas fa-${severity === 'high' ? 'times-circle' : severity === 'medium' ? 'exclamation-circle' : 'check-circle'}"></i>
+                        <div>
+                            <strong>${bottleneck.type}</strong>: ${bottleneck.value}
+                            <br><small>${bottleneck.description}</small>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+        }
+        
+        // Recommendations section
+        if (analysis.optimization_recommendations && analysis.optimization_recommendations.length > 0) {
+            html += `
+                <div class="analysis-section">
+                    <h5><i class="fas fa-lightbulb"></i> Optimization Recommendations</h5>
+                    <ul class="recommendation-list">
+            `;
+            
+            analysis.optimization_recommendations.forEach(rec => {
+                html += `<li>${rec}</li>`;
+            });
+            
+            html += '</ul></div>';
+        }
+        
+        analysisDiv.innerHTML = html;
+    }
+    
+    displayCharts(plotsUrl) {
+        const chartDiv = document.getElementById('performance-chart');
+        if (!chartDiv || !plotsUrl) return;
+        
+        chartDiv.innerHTML = `
+            <img src="${plotsUrl}?t=${Date.now()}" alt="Performance Charts" style="max-width: 100%; height: auto;">
+        `;
+    }
+    
+    async compareModels() {
+        console.log('⚖️ Starting model comparison...');
+        
+        // Get available models from the select dropdown
+        const modelSelect = document.getElementById('profiling-model');
+        const models = Array.from(modelSelect.options)
+            .filter(option => option.value)
+            .map(option => option.value)
+            .slice(0, 3); // Limit to 3 models for performance
+        
+        if (models.length < 2) {
+            this.showNotification('⚠️ Please add more models to compare', 'warning');
+            return;
+        }
+        
+        const statusDiv = document.getElementById('profiling-status');
+        const comparisonDiv = document.getElementById('model-comparison');
+        
+        statusDiv.style.display = 'block';
+        
+        try {
+            const response = await fetch('/api/profiling/compare-models', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(models)
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                this.displayModelComparison(data.comparison_results);
+                statusDiv.style.display = 'none';
+                comparisonDiv.style.display = 'block';
+                
+                this.showNotification('✅ Model comparison completed!', 'success');
+            } else {
+                throw new Error('Comparison failed');
+            }
+            
+        } catch (error) {
+            console.error('Model comparison error:', error);
+            statusDiv.style.display = 'none';
+            this.showNotification(`❌ Model comparison failed: ${error.message}`, 'error');
+        }
+    }
+    
+    displayModelComparison(results) {
+        const comparisonTable = document.getElementById('comparison-table');
+        if (!comparisonTable) return;
+        
+        let html = `
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Model</th>
+                        <th>Tokens/Sec</th>
+                        <th>Memory Usage (GB)</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        for (const [model, result] of Object.entries(results)) {
+            if (result.status === 'success') {
+                html += `
+                    <tr>
+                        <td>${model.split('/').pop()}</td>
+                        <td>${result.tokens_per_second.toFixed(1)}</td>
+                        <td>${result.memory_usage.toFixed(1)}</td>
+                        <td><span style="color: #48bb78;">✅ Success</span></td>
+                    </tr>
+                `;
+            } else {
+                html += `
+                    <tr>
+                        <td>${model.split('/').pop()}</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td><span style="color: #f56565;">❌ ${result.error || 'Failed'}</span></td>
+                    </tr>
+                `;
+            }
+        }
+        
+        html += '</tbody></table>';
+        comparisonTable.innerHTML = html;
+    }
+    
+    async showOptimizationGuide() {
+        console.log('📖 Loading optimization guide...');
+        
+        try {
+            const response = await fetch('/api/profiling/optimization-guide');
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                this.displayOptimizationGuide(data);
+                document.getElementById('optimization-guide-modal').style.display = 'flex';
+            } else {
+                throw new Error('Failed to load optimization guide');
+            }
+            
+        } catch (error) {
+            console.error('Optimization guide error:', error);
+            this.showNotification(`❌ Failed to load optimization guide: ${error.message}`, 'error');
+        }
+    }
+    
+    displayOptimizationGuide(data) {
+        const guideContent = document.getElementById('guide-content');
+        if (!guideContent) return;
+        
+        let html = `
+            <div class="guide-section">
+                <h5><i class="fas fa-info-circle"></i> System Information</h5>
+                <p><strong>Hardware Profile:</strong> ${data.hardware_profile}</p>
+                <p><strong>System Memory:</strong> ${data.system_memory.toFixed(0)}GB</p>
+            </div>
+        `;
+        
+        // MLX Flags
+        html += `
+            <div class="guide-section">
+                <h5><i class="fas fa-flag"></i> MLX Optimization Flags</h5>
+        `;
+        
+        for (const [category, flags] of Object.entries(data.mlx_flags)) {
+            html += `
+                <h6>${category.replace('_', ' ').toUpperCase()}</h6>
+                <div class="flag-list">
+            `;
+            
+            for (const [flag, description] of Object.entries(flags)) {
+                html += `
+                    <div class="flag-item">
+                        <span class="flag-name">--${flag}</span>
+                        <span class="flag-desc">${description}</span>
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+        }
+        
+        html += '</div>';
+        
+        // Model Recommendations
+        if (data.model_recommendations && data.model_recommendations.length > 0) {
+            html += `
+                <div class="guide-section">
+                    <h5><i class="fas fa-robot"></i> Recommended Models</h5>
+            `;
+            
+            data.model_recommendations.forEach(model => {
+                html += `
+                    <div class="metric-detail">
+                        <h6>${model.model}</h6>
+                        <p><strong>Size:</strong> ${model.size}</p>
+                        <p><strong>Use Case:</strong> ${model.use_case}</p>
+                        <p><strong>Performance:</strong> ${model.performance}</p>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+        }
+        
+        guideContent.innerHTML = html;
+    }
+    
+    hideOptimizationGuide() {
+        document.getElementById('optimization-guide-modal').style.display = 'none';
+    }
+    
+    switchResultTab(tabName) {
+        // Hide all tab contents
+        document.querySelectorAll('.result-tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        
+        // Remove active class from all tab buttons
+        document.querySelectorAll('.tab-btn[data-result-tab]').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        // Show selected tab content
+        const targetContent = document.getElementById(`${tabName}-content`);
+        if (targetContent) {
+            targetContent.classList.add('active');
+        }
+        
+        // Add active class to selected tab button
+        const targetBtn = document.querySelector(`.tab-btn[data-result-tab="${tabName}"]`);
+        if (targetBtn) {
+            targetBtn.classList.add('active');
+        }
+    }
+    
+    downloadReport() {
+        if (!this.currentProfilingData) {
+            this.showNotification('❌ No profiling data available to download', 'error');
+            return;
+        }
+        
+        // Open the JSON report in a new tab
+        const reportUrl = this.currentProfilingData.report_url;
+        if (reportUrl) {
+            window.open(reportUrl, '_blank');
+        }
+    }
+    
+    refreshCharts() {
+        if (!this.currentProfilingData) {
+            this.showNotification('❌ No charts to refresh', 'warning');
+            return;
+        }
+        
+        // Refresh the chart image with a new timestamp
+        this.displayCharts(this.currentProfilingData.plots_url);
+        this.showNotification('✅ Charts refreshed!', 'success');
+    }
+
+    // === Reasoning Interface ===
+    setupReasoningInterface() {
+        console.log('🧠 Setting up reasoning interface...');
+        
+        // Stack selection buttons
+        const stackSelectBtns = document.querySelectorAll('.stack-select-btn');
+        stackSelectBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => this.selectReasoningStack(e.target.dataset.stack));
+        });
+
+        // Configuration controls
+        const enableDspy = document.getElementById('enable-dspy');
+        if (enableDspy) {
+            enableDspy.addEventListener('change', () => this.updateReasoningConfig());
+        }
+
+        const performanceTracking = document.getElementById('performance-tracking');
+        if (performanceTracking) {
+            performanceTracking.addEventListener('change', () => this.updateReasoningConfig());
+        }
+
+        const confidenceThreshold = document.getElementById('confidence-threshold');
+        if (confidenceThreshold) {
+            confidenceThreshold.addEventListener('input', (e) => {
+                document.getElementById('confidence-threshold-value').textContent = e.target.value;
+            });
+            confidenceThreshold.addEventListener('change', () => this.updateReasoningConfig());
+        }
+
+        // Action buttons
+        const refreshStatsBtn = document.getElementById('refresh-reasoning-stats');
+        if (refreshStatsBtn) {
+            refreshStatsBtn.addEventListener('click', () => this.refreshReasoningStats());
+        }
+
+        const exportStatsBtn = document.getElementById('export-reasoning-stats');
+        if (exportStatsBtn) {
+            exportStatsBtn.addEventListener('click', () => this.exportReasoningStats());
+        }
+
+        const optimizeBtn = document.getElementById('optimize-reasoning');
+        if (optimizeBtn) {
+            optimizeBtn.addEventListener('click', () => this.optimizeReasoningSystem());
+        }
+
+        // Initial load
+        this.loadReasoningStacks();
+        this.loadReasoningPerformance();
+    }
+
+    async loadReasoningStacks() {
+        try {
+            const response = await fetch('/api/reasoning/stacks');
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                this.updateStackDisplay(data.stacks, data.current_stack);
+            }
+        } catch (error) {
+            console.error('Error loading reasoning stacks:', error);
+            this.showToast('Failed to load reasoning stacks', 'error');
+        }
+    }
+
+    updateStackDisplay(stacks, currentStack) {
+        // Update current stack display
+        const currentStackName = document.getElementById('current-stack-name');
+        const currentStackDescription = document.getElementById('current-stack-description');
+        
+        if (currentStackName && stacks[currentStack]) {
+            currentStackName.textContent = stacks[currentStack].name;
+        }
+        
+        if (currentStackDescription && stacks[currentStack]) {
+            currentStackDescription.textContent = stacks[currentStack].description;
+        }
+
+        // Update stack cards
+        const stackCards = document.querySelectorAll('.stack-card');
+        stackCards.forEach(card => {
+            const stackId = card.dataset.stack;
+            const selectBtn = card.querySelector('.stack-select-btn');
+            
+            if (stackId === currentStack) {
+                card.classList.add('active');
+                if (selectBtn) selectBtn.textContent = 'Current';
+            } else {
+                card.classList.remove('active');
+                if (selectBtn) selectBtn.textContent = 'Select';
+            }
+        });
+    }
+
+    async selectReasoningStack(stackName) {
+        if (!stackName) return;
+        
+        this.showLoading();
+        
+        try {
+            const response = await fetch('/api/reasoning/stack', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ stack_name: stackName })
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                this.showToast(`Switched to ${stackName} reasoning stack`, 'success');
+                await this.loadReasoningStacks(); // Refresh display
+            } else {
+                this.showToast(`Failed to switch stack: ${data.message}`, 'error');
+            }
+        } catch (error) {
+            console.error('Error selecting reasoning stack:', error);
+            this.showToast('Failed to select reasoning stack', 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    async loadReasoningPerformance() {
+        try {
+            const response = await fetch('/api/reasoning/performance');
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                this.updatePerformanceDisplay(data.performance);
+                this.updateStrategyUsageChart(data.performance);
+            }
+        } catch (error) {
+            console.error('Error loading reasoning performance:', error);
+        }
+    }
+
+    updatePerformanceDisplay(performance) {
+        // Update metric cards
+        const totalQueries = document.getElementById('total-queries');
+        if (totalQueries && performance.overall_stats) {
+            totalQueries.textContent = performance.overall_stats.total_queries || 0;
+        }
+
+        const avgProcessingTime = document.getElementById('avg-processing-time');
+        if (avgProcessingTime && performance.overall_stats) {
+            const time = performance.overall_stats.average_processing_time || 0;
+            avgProcessingTime.textContent = `${time.toFixed(3)}s`;
+        }
+
+        const successRate = document.getElementById('success-rate');
+        if (successRate && performance.overall_stats) {
+            const rate = (performance.overall_stats.success_rate || 0) * 100;
+            successRate.textContent = `${rate.toFixed(1)}%`;
+        }
+
+        const dspyStatus = document.getElementById('dspy-status');
+        if (dspyStatus && performance.dspy_stats) {
+            const isAvailable = performance.dspy_stats.dspy_available;
+            dspyStatus.innerHTML = isAvailable ? 
+                '<span class="status enabled">Enabled</span>' : 
+                '<span class="status disabled">Disabled</span>';
+        }
+    }
+
+    updateStrategyUsageChart(performance) {
+        const chartContainer = document.getElementById('strategy-usage-chart');
+        if (!chartContainer || !performance.overall_stats) return;
+
+        const strategyUsage = performance.overall_stats.strategy_usage || {};
+        const totalUsage = Object.values(strategyUsage).reduce((sum, count) => sum + count, 0);
+
+        if (totalUsage === 0) {
+            chartContainer.innerHTML = '<p>No strategy usage data available yet</p>';
+            return;
+        }
+
+        // Create simple bar chart
+        let chartHTML = '<div class="strategy-chart">';
+        for (const [strategy, count] of Object.entries(strategyUsage)) {
+            const percentage = (count / totalUsage) * 100;
+            chartHTML += `
+                <div class="strategy-bar">
+                    <div class="strategy-label">${strategy}</div>
+                    <div class="strategy-progress">
+                        <div class="strategy-fill" style="width: ${percentage}%"></div>
+                    </div>
+                    <div class="strategy-count">${count} (${percentage.toFixed(1)}%)</div>
+                </div>
+            `;
+        }
+        chartHTML += '</div>';
+
+        chartContainer.innerHTML = chartHTML;
+    }
+
+    async updateReasoningConfig() {
+        const enableDspy = document.getElementById('enable-dspy');
+        const performanceTracking = document.getElementById('performance-tracking');
+        const confidenceThreshold = document.getElementById('confidence-threshold');
+
+        const config = {
+            enable_dspy: enableDspy ? enableDspy.checked : true,
+            performance_tracking: performanceTracking ? performanceTracking.checked : true,
+            strategy_confidence_threshold: confidenceThreshold ? parseFloat(confidenceThreshold.value) : 0.7
+        };
+
+        try {
+            const response = await fetch('/api/reasoning/config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(config)
+            });
+
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                this.showToast('Reasoning configuration updated', 'success');
+            } else {
+                this.showToast(`Failed to update config: ${data.message}`, 'error');
+            }
+        } catch (error) {
+            console.error('Error updating reasoning config:', error);
+            this.showToast('Failed to update reasoning configuration', 'error');
+        }
+    }
+
+    async refreshReasoningStats() {
+        this.showLoading();
+        try {
+            await this.loadReasoningPerformance();
+            this.showToast('Reasoning statistics refreshed', 'success');
+        } catch (error) {
+            this.showToast('Failed to refresh statistics', 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    async exportReasoningStats() {
+        try {
+            const response = await fetch('/api/reasoning/performance');
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                const blob = new Blob([JSON.stringify(data.performance, null, 2)], {
+                    type: 'application/json'
+                });
+                
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `reasoning-performance-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                this.showToast('Performance data exported', 'success');
+            }
+        } catch (error) {
+            console.error('Error exporting stats:', error);
+            this.showToast('Failed to export performance data', 'error');
+        }
+    }
+
+    async optimizeReasoningSystem() {
+        if (!confirm('This will analyze recent queries to optimize the reasoning system. Continue?')) {
+            return;
+        }
+
+        this.showLoading();
+        
+        try {
+            // Create example queries from recent conversation history
+            const examples = this.conversationHistory.slice(-10).map(entry => ({
+                query: entry.message,
+                context: '',
+                expected_strategy: 'auto'
+            }));
+
+            const response = await fetch('/api/reasoning/optimize', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ examples })
+            });
+
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                this.showToast('Reasoning system optimized successfully', 'success');
+                await this.loadReasoningPerformance(); // Refresh stats
+            } else {
+                this.showToast(`Optimization warning: ${data.message}`, 'warning');
+            }
+        } catch (error) {
+            console.error('Error optimizing reasoning system:', error);
+            this.showToast('Failed to optimize reasoning system', 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    // Start periodic updates
+    startPeriodicUpdates() {
+        // Update performance metrics every 30 seconds
+        setInterval(() => {
+            if (document.querySelector('.nav-tab[data-tab="performance"]').classList.contains('active')) {
+                this.refreshPerformanceMetrics();
+            }
+        }, 30000);
+        
+        // Update current model info every 60 seconds
+        setInterval(() => {
+            this.updateCurrentModelInfo();
+        }, 60000);
+    }
+
+    checkSystemInitialization() {
+        // Check if system is fully initialized once
+        fetch('/api/status')
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success' && data.system.model.status === 'loaded') {
+                    console.log('✅ System is fully initialized');
+                    this.showToast('🎉 LLMind is fully initialized and ready!', 'success');
+                } else {
+                    console.log('⏳ System still initializing, will check again...');
+                    // Check again in 5 seconds if not ready
+                    setTimeout(() => this.checkSystemInitialization(), 5000);
+                }
+            })
+            .catch(error => {
+                console.error('Error checking system status:', error);
+            });
+    }
+
+    // === Missing Tab Loaders ===
+    
+    async loadReasoningData() {
+        console.log('🧠 Loading reasoning data...');
+        try {
+            // Load reasoning stacks and performance stats
+            await this.loadReasoningStacks();
+            await this.refreshReasoningStats();
+            console.log('✅ Reasoning data loaded successfully');
+        } catch (error) {
+            console.error('❌ Error loading reasoning data:', error);
+            this.showToast('Failed to load reasoning data', 'error');
+        }
+    }
+    
+    async loadSettings() {
+        console.log('⚙️ Loading settings...');
+        try {
+            // Settings are mostly static in the HTML template
+            // Just ensure any dynamic elements are populated
+            const response = await fetch('/api/status');
+            const data = await response.json();
+            console.log('📡 Settings/status data:', data);
+            
+            if (data.status === 'success') {
+                this.updateSettingsDisplay(data.settings);
+                console.log('✅ Settings loaded successfully');
+            } else {
+                console.error('❌ Settings API returned error:', data);
+                this.showToast('Failed to load settings: ' + (data.message || 'Unknown error'), 'error');
+            }
+        } catch (error) {
+            console.error('❌ Error loading settings:', error);
+            this.showToast('Failed to load settings', 'error');
+        }
+    }
+    
+    updateSettingsDisplay(settings) {
+        console.log('🔧 Updating settings display with:', settings);
+        // Update any dynamic settings elements here
+        // Most settings are already in the HTML template
+    }
+    
+    async refreshReasoningStats() {
+        console.log('📊 Refreshing reasoning stats...');
+        try {
+            const response = await fetch('/api/reasoning/performance');
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                this.updateReasoningStats(data.performance);
+                console.log('✅ Reasoning stats refreshed');
+            } else {
+                console.error('❌ Reasoning stats API returned error:', data);
+            }
+        } catch (error) {
+            console.error('❌ Error refreshing reasoning stats:', error);
+        }
+    }
+    
+    updateReasoningStats(stats) {
+        console.log('📈 Updating reasoning stats:', stats);
+        
+        // Update total queries
+        const totalQueriesEl = document.getElementById('total-queries');
+        if (totalQueriesEl && stats.overall_stats) {
+            totalQueriesEl.textContent = stats.overall_stats.total_queries || 0;
+        }
+        
+        // Update average processing time
+        const avgTimeEl = document.getElementById('avg-processing-time');
+        if (avgTimeEl && stats.overall_stats) {
+            avgTimeEl.textContent = (stats.overall_stats.average_processing_time || 0).toFixed(3) + 's';
+        }
+        
+        // Update success rate
+        const successRateEl = document.getElementById('success-rate');
+        if (successRateEl && stats.overall_stats) {
+            successRateEl.textContent = ((stats.overall_stats.success_rate || 0) * 100).toFixed(1) + '%';
+        }
+    }
+
+    // === Document Monitoring Functions ===
+    async loadMonitoringStatus() {
+        try {
+            console.log('📊 Loading monitoring status...');
+            const response = await fetch('/api/documents/monitoring-status');
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                this.updateMonitoringUI(data);
+            } else {
+                console.error('Failed to load monitoring status:', data.message);
+            }
+        } catch (error) {
+            console.error('Error loading monitoring status:', error);
+        }
+    }
+    
+    updateMonitoringUI(data) {
+        // Update monitored folders count
+        const countElement = document.getElementById('monitored-folders-count');
+        if (countElement) {
+            countElement.textContent = data.monitored_paths.length;
+        }
+        
+        // Update watcher status
+        const statusIndicator = document.getElementById('watcher-status-indicator');
+        const statusText = document.getElementById('watcher-status-text');
+        
+        if (statusIndicator && statusText) {
+            if (data.watcher_running) {
+                statusIndicator.className = 'status-indicator active';
+                statusText.textContent = 'File watcher active';
+            } else {
+                statusIndicator.className = 'status-indicator inactive';
+                statusText.textContent = 'File watcher stopped';
+            }
+        }
+        
+        // Update monitored folders list
+        this.updateMonitoredFoldersList(data.monitored_paths);
+    }
+    
+    updateMonitoredFoldersList(folders) {
+        const container = document.getElementById('monitored-folders-list');
+        if (!container) return;
+        
+        if (folders.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-folder-open"></i>
+                    <p>No folders are being monitored</p>
+                    <small>Add a folder above to start automatic processing</small>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = folders.map(folder => `
+            <div class="folder-item" data-path="${folder}">
+                <div class="folder-info">
+                    <div class="folder-path">${folder}</div>
+                    <div class="folder-status">Active monitoring</div>
+                </div>
+                <div class="folder-actions">
+                    <button class="btn-remove" onclick="app.removeMonitoredFolder('${folder}')">
+                        <i class="fas fa-times"></i> Remove
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    async addMonitoredFolder(folderPath) {
+        try {
+            console.log(`📁 Adding monitored folder: ${folderPath}`);
+            
+            const response = await fetch('/api/documents/add-monitored-folder', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ folder_path: folderPath })
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                this.showToast('✅ Folder monitoring started', 'success');
+                this.updateMonitoredFoldersList(result.monitored_paths);
+                
+                // Update count
+                const countElement = document.getElementById('monitored-folders-count');
+                if (countElement) {
+                    countElement.textContent = result.monitored_paths.length;
+                }
+                
+                // Clear input
+                const input = document.getElementById('monitor-folder-path');
+                if (input) input.value = '';
+                
+            } else {
+                this.showToast(`❌ Failed to add folder: ${result.message}`, 'error');
+            }
+            
+        } catch (error) {
+            console.error('Error adding monitored folder:', error);
+            this.showToast('❌ Error adding monitored folder', 'error');
+        }
+    }
+    
+    async removeMonitoredFolder(folderPath) {
+        try {
+            console.log(`🗑️ Removing monitored folder: ${folderPath}`);
+            
+            const response = await fetch('/api/documents/remove-monitored-folder', {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ folder_path: folderPath })
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                this.showToast('✅ Folder monitoring stopped', 'success');
+                this.updateMonitoredFoldersList(result.monitored_paths);
+                
+                // Update count
+                const countElement = document.getElementById('monitored-folders-count');
+                if (countElement) {
+                    countElement.textContent = result.monitored_paths.length;
+                }
+                
+            } else {
+                this.showToast(`❌ Failed to remove folder: ${result.message}`, 'error');
+            }
+            
+        } catch (error) {
+            console.error('Error removing monitored folder:', error);
+            this.showToast('❌ Error removing monitored folder', 'error');
+        }
+    }
+    
+    async initializeDocumentWatcher() {
+        try {
+            const response = await fetch('/api/documents/initialize-watcher', {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                console.log('✅ Document watcher initialized');
+                this.loadMonitoringStatus();
+            }
+            
+        } catch (error) {
+            console.error('Error initializing document watcher:', error);
+        }
+    }
+    
+    setupMonitoringEventListeners() {
+        // Add monitored folder button
+        const addFolderBtn = document.getElementById('add-monitored-folder-btn');
+        if (addFolderBtn) {
+            addFolderBtn.addEventListener('click', () => {
+                const input = document.getElementById('monitor-folder-path');
+                const folderPath = input ? input.value.trim() : '';
+                
+                if (folderPath) {
+                    this.addMonitoredFolder(folderPath);
+                } else {
+                    this.showToast('Please enter a folder path', 'warning');
+                }
+            });
+        }
+        
+        // Enter key in folder input
+        const folderInput = document.getElementById('monitor-folder-path');
+        if (folderInput) {
+            folderInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    const folderPath = e.target.value.trim();
+                    if (folderPath) {
+                        this.addMonitoredFolder(folderPath);
+                    }
+                }
+            });
+        }
+        
+        // Browse folder button (note: limited in web browsers)
+        const browseFolderBtn = document.getElementById('browse-folder-btn');
+        if (browseFolderBtn) {
+            browseFolderBtn.addEventListener('click', () => {
+                // Create hidden file input for folder selection
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.webkitdirectory = true;
+                input.style.display = 'none';
+                
+                input.addEventListener('change', (e) => {
+                    if (e.target.files.length > 0) {
+                        // Get the folder path from the first file
+                        const firstFile = e.target.files[0];
+                        const folderPath = firstFile.webkitRelativePath.split('/')[0];
+                        
+                        // Note: This gets a relative folder name, not full path
+                        // For full functionality, users should type the path manually
+                        const pathInput = document.getElementById('monitor-folder-path');
+                        if (pathInput) {
+                            pathInput.value = folderPath;
+                        }
+                        
+                        this.showToast('💡 Folder selected. Edit the path if needed before adding.', 'info');
+                    }
+                });
+                
+                input.click();
+            });
+        }
+        
+        // Refresh documents button
+        const refreshBtn = document.getElementById('refresh-documents-btn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                this.loadDocuments();
+            });
+        }
+        
+        // Clear all documents button
+        const clearAllBtn = document.getElementById('clear-all-documents-btn');
+        if (clearAllBtn) {
+            clearAllBtn.addEventListener('click', () => {
+                if (confirm('Are you sure you want to clear all documents? This cannot be undone.')) {
+                    this.clearAllDocuments();
+                }
+            });
+        }
+    }
+    
+    async clearAllDocuments() {
+        try {
+            const response = await fetch('/api/documents/clear', {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                this.showToast('✅ All documents cleared', 'success');
+                this.loadDocuments();
+                
+                // Update stats
+                const documentsCount = document.getElementById('documents-count');
+                const chunksCount = document.getElementById('chunks-count');
+                if (documentsCount) documentsCount.textContent = '0';
+                if (chunksCount) chunksCount.textContent = '0';
+                
+            } else {
+                this.showToast(`❌ Failed to clear documents: ${result.message}`, 'error');
+            }
+            
+        } catch (error) {
+            console.error('Error clearing documents:', error);
+            this.showToast('❌ Error clearing documents', 'error');
+        }
+    }
+}
+
+// Initialize the application when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+            console.log('🎯 DOM Content Loaded - Initializing LLMind');
+    
+    // Create the app instance
+    window.llmindApp = new LLMindApp();
+    
+    // Add a short delay to ensure DOM is fully ready, then reload all data
+    setTimeout(() => {
+        console.log('🔄 Forcing initial data load for all tabs');
+        
+        // Force reload all tab data
+            if (window.llmindApp.loadChatHistory) {
+        window.llmindApp.loadChatHistory().catch(e => console.error('Failed to load chat history:', e));
+        }
+            if (window.llmindApp.loadDocuments) {
+        window.llmindApp.loadDocuments().catch(e => console.error('Failed to load documents:', e));
+    }
+    if (window.llmindApp.loadModels) {
+        window.llmindApp.loadModels().catch(e => console.error('Failed to load models:', e));
+    }
+    if (window.llmindApp.loadVoices) {
+        window.llmindApp.loadVoices().catch(e => console.error('Failed to load voices:', e));
+    }
+    if (window.llmindApp.loadPerformanceData) {
+        window.llmindApp.loadPerformanceData().catch(e => console.error('Failed to load performance data:', e));
+    }
+    if (window.llmindApp.loadSettingsData) {
+        window.llmindApp.loadSettingsData().catch(e => console.error('Failed to load settings data:', e));
+    }
+    if (window.llmindApp.initializeDocumentWatcher) {
+        window.llmindApp.initializeDocumentWatcher().catch(e => console.error('Failed to initialize document watcher:', e));
+    }
+    if (window.llmindApp.loadMonitoringStatus) {
+        window.llmindApp.loadMonitoringStatus().catch(e => console.error('Failed to load monitoring status:', e));
+        }
+        
+        // Debug: Log the current state
+        setTimeout(() => {
+            const chatContainer = document.getElementById('chat-history-main-list');
+            console.log('📊 Debug - Chat container exists:', !!chatContainer);
+            if (chatContainer) {
+                console.log('📊 Debug - Chat container HTML length:', chatContainer.innerHTML.length);
+                console.log('📊 Debug - Chat container first 200 chars:', chatContainer.innerHTML.substring(0, 200));
+            }
+        }, 500);
+        
+        // Load initial tab data for active tab
+        const activeTab = document.querySelector('.nav-tab.active');
+        if (activeTab) {
+            const tabName = activeTab.dataset.tab;
+            console.log('🔄 Loading initial tab data for:', tabName);
+                if (window.llmindApp && window.llmindApp.loadTabData) {
+        window.llmindApp.loadTabData(tabName);
+            }
+        }
+        
+    }, 500); // Reduced delay to 500ms
+    
+    // Add global error handler for debugging
+    window.addEventListener('error', (e) => {
+        console.error('🔴 Global error:', e.message, e.filename, e.lineno, e.colno);
+    });
+});

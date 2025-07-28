@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+</head>
+<body>
+    <h1>WebSocket Connection Test</h1>
+    <div id="status">Testing...</div>
+    <div id="log" style="white-space: pre-wrap; font-family: monospace; margin-top: 20px;"></div>
+    
+    <script>
+        const log = document.getElementById('log');
+        const status = document.getElementById('status');
+        
+        function addLog(message) {
+            const timestamp = new Date().toISOString();
+            log.textContent += `${timestamp}: ${message}\n`;
+            console.log(message);
+        }
+        
+        addLog('🚀 Starting WebSocket test...');
+        addLog(`🔗 Connecting to: ws://${window.location.host}/ws`);
+        
+        try {
+            const ws = new WebSocket(`ws://${window.location.host}/ws`);
+            addLog('📡 WebSocket object created successfully');
+            
+            ws.onopen = function(event) {
+                addLog('✅ WebSocket OPENED successfully!');
+                status.textContent = 'CONNECTED!';
+                status.style.color = 'green';
+                
+                // Send test message
+                addLog('📤 Sending test message...');
+                ws.send(JSON.stringify({type: 'test', message: 'hello'}));
+            };
+            
+            ws.onmessage = function(event) {
+                addLog(`📨 Received message: ${event.data}`);
+            };
+            
+            ws.onclose = function(event) {
+                addLog(`❌ WebSocket CLOSED: Code ${event.code}, Reason: ${event.reason}`);
+                status.textContent = 'DISCONNECTED';
+                status.style.color = 'red';
+            };
+            
+            ws.onerror = function(error) {
+                addLog(`💥 WebSocket ERROR: ${error}`);
+                addLog(`💥 Error type: ${error.type}`);
+                addLog(`💥 Error target: ${error.target}`);
+                status.textContent = 'ERROR';
+                status.style.color = 'red';
+            };
+            
+        } catch (error) {
+            addLog(`💀 EXCEPTION creating WebSocket: ${error}`);
+            status.textContent = 'EXCEPTION';
+            status.style.color = 'red';
+        }
+        
+        // Test server availability
+        addLog('🔍 Testing server availability...');
+        fetch('/api/health')
+            .then(response => {
+                addLog(`🏥 Health check response: ${response.status} ${response.statusText}`);
+                return response.text();
+            })
+            .then(text => {
+                addLog(`🏥 Health check body: ${text}`);
+            })
+            .catch(error => {
+                addLog(`💥 Health check failed: ${error}`);
+            });
+            
+    </script>
+</body>
+</html> 
