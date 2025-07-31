@@ -1,6 +1,6 @@
 [flake8]
 max-line-length = 88
-extend-ignore = E203,W503,E501,F401,F841,F541,E712,E722,E402,F403,W293
+extend-ignore = E203,W503,E501,F401,F841,F541,E712,E722,E402,F403,W293,D100,D101,D102,D103,D104,D105,D107
 
 exclude = .git,__pycache__,.venv,venv,.eggs,*.egg,build,dist,models,vector_store,logs,data,documents,.specstory
 per-file-ignores =
