@@ -101,7 +101,7 @@ CHUNK_OVERLAP=200
 ENABLE_VOICE=true
 WHISPER_MODEL=base
 TTS_VOICE=Samantha
-TTS_RATE=200
+TTS_RATE=150
 
 # Performance Settings
 ENABLE_MPS=true
@@ -176,4 +176,4 @@ echo ""
 echo "📚 Documentation: Open http://localhost:8000/docs after starting"
 echo "🎯 Web Interface: Open http://localhost:8000 after starting"
 echo ""
-echo "Happy chatting with LLMind! 🦙⚡" 
+echo "Happy chatting with LLMind! 🦙⚡"

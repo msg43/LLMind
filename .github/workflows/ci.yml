@@ -1,0 +1,317 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "18"
+
+jobs:
+  # Code Quality and Security
+  code-quality:
+    runs-on: ubuntu-latest
+    name: Code Quality & Security
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install \
+          black \
+          isort \
+          flake8 \
+          flake8-docstrings \
+          flake8-bugbear \
+          flake8-comprehensions \
+          pylint \
+          mypy \
+          bandit \
+          detect-secrets \
+          pydocstyle \
+          safety \
+          pytest \
+          pytest-cov \
+          types-requests \
+          types-PyYAML
+
+    - name: Install Node.js dependencies
+      run: |
+        npm install -g prettier
+
+    - name: Code formatting check (Black)
+      run: |
+        black --check --diff .
+
+    - name: Import sorting check (isort)
+      run: |
+        isort --check-only --diff .
+
+    - name: Code linting (flake8)
+      run: |
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
+
+    - name: Code linting (pylint)
+      run: |
+        pylint --fail-under=7.0 core/ config.py main.py || true
+
+    - name: Type checking (mypy)
+      run: |
+        mypy . --ignore-missing-imports || true
+
+    - name: Security scan (bandit)
+      run: |
+        bandit -r . -x tests/ -ll || true
+
+    - name: Security scan (safety)
+      run: |
+        safety check --ignore 70612 || true
+
+    - name: Secret detection
+      run: |
+        detect-secrets scan --baseline .secrets.baseline
+
+    - name: JavaScript/CSS/HTML formatting check
+      run: |
+        prettier --check "static/**/*.{js,css,html}" "templates/**/*.html" || true
+
+  # Testing
+  test:
+    runs-on: ubuntu-latest
+    name: Tests
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-${{ matrix.python-version }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ matrix.python-version }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov pytest-asyncio
+
+    - name: Run unit tests
+      run: |
+        pytest tests/ -v --cov=core --cov=config --cov-report=xml --cov-report=term-missing
+
+    - name: Upload coverage to Codecov
+      if: matrix.python-version == '3.11'
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  # Build and Integration Tests
+  build:
+    runs-on: ubuntu-latest
+    name: Build & Integration
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Check application startup
+      run: |
+        timeout 30s python main.py || code=$?; if [[ $code -ne 124 && $code -ne 0 ]]; then exit $code; fi
+        echo "Application started successfully"
+
+    - name: API endpoint tests
+      run: |
+        python test_api_endpoints.py || true
+
+  # Documentation
+  docs:
+    runs-on: ubuntu-latest
+    name: Documentation
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pydocstyle
+
+    - name: Documentation style check
+      run: |
+        pydocstyle --convention=google --add-ignore=D100,D101,D102,D103,D104,D107 . || true
+
+  # Security Audit
+  security:
+    runs-on: ubuntu-latest
+    name: Security Audit
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit safety
+
+    - name: Run bandit security check
+      run: |
+        bandit -r . -x tests/ -f json -o bandit-report.json || true
+
+    - name: Run safety dependency check
+      run: |
+        safety check --json --output safety-report.json || true
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+
+  # Performance Benchmarks (optional)
+  performance:
+    runs-on: ubuntu-latest
+    name: Performance Benchmarks
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run performance benchmarks
+      run: |
+        python run_mlx_profiling.py || true
+
+    - name: Upload performance reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: performance-reports
+        path: |
+          mlx_performance_*.json
+          mlx_performance_*.png
+
+  # Dependency Check
+  dependency-check:
+    runs-on: ubuntu-latest
+    name: Dependency Check
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install pip-audit
+      run: |
+        python -m pip install --upgrade pip
+        pip install pip-audit
+
+    - name: Audit dependencies
+      run: |
+        pip-audit --desc --format=json --output=audit-report.json || true
+
+    - name: Upload audit report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: dependency-audit
+        path: audit-report.json
+
+  # Summary Job
+  ci-summary:
+    runs-on: ubuntu-latest
+    name: CI Summary
+    needs: [code-quality, test, build, docs, security, dependency-check]
+    if: always()
+
+    steps:
+    - name: Check results
+      run: |
+        echo "Code Quality: ${{ needs.code-quality.result }}"
+        echo "Tests: ${{ needs.test.result }}"
+        echo "Build: ${{ needs.build.result }}"
+        echo "Documentation: ${{ needs.docs.result }}"
+        echo "Security: ${{ needs.security.result }}"
+        echo "Dependencies: ${{ needs.dependency-check.result }}"
+
+        if [[ "${{ needs.code-quality.result }}" == "failure" ]] || \
+           [[ "${{ needs.test.result }}" == "failure" ]] || \
+           [[ "${{ needs.build.result }}" == "failure" ]]; then
+          echo "❌ CI Pipeline Failed"
+          exit 1
+        else
+          echo "✅ CI Pipeline Passed"
+        fi

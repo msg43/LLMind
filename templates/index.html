@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ app_name }} - Local AI Assistant</title>
-    
+
     <!-- Favicons -->
     <link rel="icon" type="image/x-icon" href="/static/favicon/favicon.ico">
     <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon/favicon-16x16.png">
@@ -13,7 +13,7 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/static/favicon/android-chrome-192x192.png">
     <link rel="icon" type="image/png" sizes="512x512" href="/static/favicon/android-chrome-512x512.png">
     <link rel="manifest" href="/static/favicon/site.webmanifest">
-    
+
     <!-- Stylesheets -->
     <link rel="stylesheet" href="/static/css/style.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -76,27 +76,231 @@
 
             <!-- Main Content -->
             <main class="main-content">
+                <!-- Performance Display Box (hidden by default) -->
+                <div id="performance-display-box" style="display: none;">
+                    <div class="performance-box">
+                        <div class="performance-header">
+                            <h2><i class="fas fa-chart-line"></i> Performance Monitoring</h2>
+                            <button id="close-performance-box" class="close-btn">&times;</button>
+                        </div>
+
+                        <div class="performance-grid">
+                            <div class="metric-card">
+                                <h3>Model Performance</h3>
+                                <div class="metric">
+                                    <span class="metric-label">Tokens/sec:</span>
+                                    <span class="metric-value" id="perf-tokens-sec">--</span>
+                                </div>
+                                <div class="metric">
+                                    <span class="metric-label">Avg Response Time:</span>
+                                    <span class="metric-value" id="perf-response-time">--</span>
+                                </div>
+                                <div class="metric">
+                                    <span class="metric-label">GPU Utilization:</span>
+                                    <span class="metric-value" id="perf-gpu">--</span>
+                                </div>
+                            </div>
+
+                            <div class="metric-card">
+                                <h3>Memory Usage</h3>
+                                <div class="metric">
+                                    <span class="metric-label">Used:</span>
+                                    <span class="metric-value" id="perf-memory-used">--</span>
+                                </div>
+                                <div class="metric">
+                                    <span class="metric-label">Available:</span>
+                                    <span class="metric-value" id="perf-memory-available">--</span>
+                                </div>
+                                <div class="metric">
+                                    <span class="metric-label">Peak Usage:</span>
+                                    <span class="metric-value" id="perf-memory-peak">--</span>
+                                </div>
+                            </div>
+
+                            <div class="metric-card">
+                                <h3>System Stats</h3>
+                                <div class="metric">
+                                    <span class="metric-label">Documents:</span>
+                                    <span class="metric-value" id="perf-doc-count">--</span>
+                                </div>
+                                <div class="metric">
+                                    <span class="metric-label">Vector Store:</span>
+                                    <span class="metric-value" id="perf-vector-count">--</span>
+                                </div>
+                                <div class="metric">
+                                    <span class="metric-label">Conversations:</span>
+                                    <span class="metric-value" id="perf-conversation-count">--</span>
+                                </div>
+                            </div>
+
+                            <div class="metric-card">
+                                <h3>Chat Performance</h3>
+                                <div class="metric">
+                                    <span class="metric-label">Avg Response:</span>
+                                    <span class="metric-value" id="perf-chat-response">--</span>
+                                </div>
+                                <div class="metric">
+                                    <span class="metric-label">Total Messages:</span>
+                                    <span class="metric-value" id="perf-total-messages">--</span>
+                                </div>
+                                <div class="metric">
+                                    <span class="metric-label">Active Model:</span>
+                                    <span class="metric-value" id="perf-active-model">--</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="performance-actions">
+                            <button class="btn btn-primary" id="refresh-performance">
+                                <i class="fas fa-sync"></i> Refresh Metrics
+                            </button>
+                            <button class="btn btn-secondary" id="export-performance">
+                                <i class="fas fa-download"></i> Export Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Display Box (hidden by default) -->
+                <div id="settings-display-box" style="display: none;">
+                    <div class="settings-box">
+                        <div class="settings-header">
+                            <h2><i class="fas fa-cog"></i> System Settings</h2>
+                            <button id="close-settings-box" class="close-btn">&times;</button>
+                        </div>
+
+                        <div class="settings-grid">
+                            <div class="setting-card">
+                                <h3>Model Configuration</h3>
+                                <div class="setting-group">
+                                    <label for="model-temperature">Temperature:</label>
+                                    <input type="range" id="model-temperature" min="0" max="2" step="0.1" value="0.7">
+                                    <span id="model-temperature-value">0.7</span>
+                                </div>
+                                <div class="setting-group">
+                                    <label for="model-max-tokens">Max Tokens:</label>
+                                    <input type="number" id="model-max-tokens" min="1" max="4096" value="2048">
+                                </div>
+                                <div class="setting-group">
+                                    <label for="model-top-p">Top P:</label>
+                                    <input type="range" id="model-top-p" min="0" max="1" step="0.01" value="0.9">
+                                    <span id="model-top-p-value">0.9</span>
+                                </div>
+                            </div>
+
+                            <div class="setting-card">
+                                <h3>Audio Settings</h3>
+                                <div class="setting-group">
+                                    <label for="tts-rate">TTS Rate:</label>
+                                    <input type="range" id="tts-rate" min="100" max="300" step="10" value="150">
+                                    <span id="tts-rate-value">150</span>
+                                </div>
+                                <div class="setting-group">
+                                    <label>
+                                        <input type="checkbox" id="enable-audio-feedback">
+                                        Enable Audio Feedback
+                                    </label>
+                                </div>
+                                <div class="setting-group">
+                                    <label for="audio-volume">Volume:</label>
+                                    <input type="range" id="audio-volume" min="0" max="100" step="5" value="80">
+                                    <span id="audio-volume-value">80%</span>
+                                </div>
+                            </div>
+
+                            <div class="setting-card">
+                                <h3>Interface Settings</h3>
+                                <div class="setting-group">
+                                    <label>
+                                        <input type="checkbox" id="enable-dark-mode" checked>
+                                        Dark Mode
+                                    </label>
+                                </div>
+                                <div class="setting-group">
+                                    <label>
+                                        <input type="checkbox" id="enable-animations" checked>
+                                        Enable Animations
+                                    </label>
+                                </div>
+                                <div class="setting-group">
+                                    <label for="chat-font-size">Chat Font Size:</label>
+                                    <select id="chat-font-size">
+                                        <option value="small">Small</option>
+                                        <option value="medium" selected>Medium</option>
+                                        <option value="large">Large</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="setting-card">
+                                <h3>System Settings</h3>
+                                <div class="setting-group">
+                                    <label>
+                                        <input type="checkbox" id="auto-save-chats" checked>
+                                        Auto-save Conversations
+                                    </label>
+                                </div>
+                                <div class="setting-group">
+                                    <label for="max-chat-history">Max Chat History:</label>
+                                    <select id="max-chat-history">
+                                        <option value="50">50 messages</option>
+                                        <option value="100" selected>100 messages</option>
+                                        <option value="200">200 messages</option>
+                                        <option value="unlimited">Unlimited</option>
+                                    </select>
+                                </div>
+                                <div class="setting-group">
+                                    <label>
+                                        <input type="checkbox" id="enable-logging">
+                                        Enable Debug Logging
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="settings-actions">
+                            <button class="btn btn-primary" id="save-settings">
+                                <i class="fas fa-save"></i> Save Settings
+                            </button>
+                            <button class="btn btn-secondary" id="reset-settings">
+                                <i class="fas fa-undo"></i> Reset to Defaults
+                            </button>
+                            <button class="btn btn-outline" id="export-settings">
+                                <i class="fas fa-download"></i> Export Settings
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Chat Tab -->
                 <div class="tab-content active" id="chat-tab">
                     <div class="chat-container">
                         <div class="chat-header">
                             <h2><i class="fas fa-comments"></i> AI Assistant</h2>
                             <div class="chat-controls">
+                                <div class="library-selection">
+                                    <label for="chat-library-select">Chatting with:</label>
+                                    <select id="chat-library-select" class="library-select">
+                                        <option value="default">Default Library</option>
+                                    </select>
+                                </div>
+
                                 <button class="btn btn-secondary" id="new-chat-btn" title="Start New Chat">
                                     <i class="fas fa-plus"></i> New Chat
                                 </button>
                                 <button class="btn btn-secondary" id="export-chat-btn" style="display: none;" title="Export Chat">
                                     <i class="fas fa-download"></i> Export
                                 </button>
-                                <button class="btn btn-secondary" id="clear-chat">
-                                    <i class="fas fa-trash"></i> Clear Chat
+
+                                <button class="btn btn-outline voice-mode-btn" id="voice-to-text-toggle">
+                                    <i class="fas fa-microphone"></i> Voice-To-Text Mode: Disabled
                                 </button>
-                                <button class="btn btn-primary" id="voice-toggle">
-                                    <i class="fas fa-microphone"></i> Voice Mode
+                                <button class="btn btn-outline voice-mode-btn" id="spoken-response-toggle">
+                                    <i class="fas fa-volume-up"></i> Spoken Response Mode: Disabled
                                 </button>
                             </div>
                         </div>
-                        
+
                         <div class="chat-messages" id="chat-messages">
                             <div class="welcome-message">
                                 <div class="message assistant">
@@ -108,7 +312,7 @@
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div class="chat-input-container">
                             <div class="voice-controls" id="voice-controls" style="display: none;">
                                 <button class="voice-btn" id="record-btn">
@@ -117,11 +321,11 @@
                                 </button>
                                 <div class="voice-status" id="voice-status"></div>
                             </div>
-                            
+
                             <div class="chat-input-group">
-                                <textarea 
-                                    id="chat-input" 
-                                    placeholder="Ask me anything about your documents..." 
+                                <textarea
+                                    id="chat-input"
+                                    placeholder="Ask me anything about your documents..."
                                     rows="1"
                                     maxlength="2000"
                                 ></textarea>
@@ -137,7 +341,7 @@
                 <div class="tab-content" id="history-tab">
                     <div class="section">
                         <h2><i class="fas fa-history"></i> Chat History</h2>
-                        
+
                         <div class="chat-history-controls">
                             <button class="btn btn-primary" id="new-chat-history-btn" title="Start New Chat">
                                 <i class="fas fa-plus"></i> Start New Chat
@@ -196,7 +400,7 @@
                 <div class="tab-content" id="models-tab">
                     <div class="section">
                         <h2><i class="fas fa-brain"></i> MLX Model Management</h2>
-                        
+
                         <div class="current-model">
                             <h3>Current Model</h3>
                             <div class="model-info">
@@ -260,19 +464,51 @@
                 <div class="tab-content" id="documents-tab">
                     <div class="section">
                         <h2><i class="fas fa-file-alt"></i> Document Management</h2>
-                        
+
+                        <!-- Library Management Section -->
+                        <div class="library-management">
+                            <h3><i class="fas fa-layer-group"></i> Document Libraries</h3>
+                            <p class="section-description">Organize documents into separate collections for focused conversations</p>
+
+                            <div class="library-controls">
+                                <div class="current-library">
+                                    <label>Active Library:</label>
+                                    <select id="active-library-select" class="library-select">
+                                        <option value="default">Default Library</option>
+                                    </select>
+                                </div>
+
+                                <div class="library-actions">
+                                    <button class="btn btn-primary" id="create-library-btn">
+                                        <i class="fas fa-plus"></i> New Library
+                                    </button>
+                                    <button class="btn btn-secondary" id="delete-library-btn">
+                                        <i class="fas fa-trash"></i> Delete Library
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="libraries-list" id="libraries-list">
+                                <!-- Libraries will be loaded here -->
+                            </div>
+                        </div>
+
                         <!-- Document Processing Stats -->
                         <div class="documents-stats">
                             <div class="stat-card">
-                                <h3>{{ document_count }}</h3>
+                                <h3 id="total-libraries">1</h3>
+                                <p>Libraries</p>
+                            </div>
+                            <div class="stat-card">
+                                <h3 id="total-documents">{{ document_count }}</h3>
                                 <p>Documents Processed</p>
                             </div>
                             <div class="stat-card">
-                                <h3>{{ vector_stats.total_vectors }}</h3>
+                                <h3 id="total-vectors">{{ vector_stats.total_vectors }}</h3>
                                 <p>Text Chunks</p>
                             </div>
                             <div class="stat-card">
-                                <h3>{{ vector_stats.memory_usage_mb|round(1) }}</h3>
+                                <h3 id="memory-usage">{{ vector_stats.memory_usage_mb|round(1) }}</h3>
                                 <p>MB in Vector Store</p>
                             </div>
                             <div class="stat-card" id="monitoring-status-card">
@@ -284,18 +520,25 @@
                         <!-- Manual Upload Section -->
                         <div class="upload-section">
                             <h3><i class="fas fa-upload"></i> Manual Upload</h3>
-                            <p class="section-description">Upload files or folders that will be processed once</p>
-                            
+                            <p class="section-description">Upload files or folders to the selected library</p>
+
+                            <div class="upload-target">
+                                <label>Upload to Library:</label>
+                                <select id="upload-library-select" class="library-select">
+                                    <option value="default">Default Library</option>
+                                </select>
+                            </div>
+
                             <div class="upload-area" id="upload-area">
                                 <i class="fas fa-cloud-upload-alt"></i>
                                 <h4>Drop files or folders here</h4>
                                 <p>Supports PDF, DOCX, TXT, Markdown, and HTML files</p>
-                                
+
                                 <!-- File Upload Options -->
                                 <div class="upload-options">
                                     <input type="file" id="file-input" multiple accept=".pdf,.docx,.txt,.md,.html" style="display: none;">
                                     <input type="file" id="folder-input" webkitdirectory directory multiple style="display: none;">
-                                    
+
                                     <div class="upload-buttons">
                                         <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">
                                             <i class="fas fa-file"></i> Choose Files
@@ -305,7 +548,7 @@
                                         </button>
                                     </div>
                                 </div>
-                                
+
                                 <!-- Upload Progress -->
                                 <div class="upload-progress" id="upload-progress" style="display: none;">
                                     <div class="progress-bar">
@@ -320,7 +563,14 @@
                         <div class="monitoring-section">
                             <h3><i class="fas fa-eye"></i> Monitored Folders</h3>
                             <p class="section-description">Folders that are continuously watched for changes and automatically processed</p>
-                            
+
+                            <div class="monitoring-library-info">
+                                <div class="library-notice">
+                                    <i class="fas fa-info-circle"></i>
+                                    <strong>Auto-processing target:</strong> Documents from monitored folders will automatically be added to the <span id="active-library-name" class="active-library-highlight">active library</span>.
+                                </div>
+                            </div>
+
                             <div class="monitoring-controls">
                                 <div class="add-folder-form">
                                     <input type="text" id="monitor-folder-path" placeholder="Enter folder path to monitor..." class="folder-input">
@@ -331,17 +581,17 @@
                                         <i class="fas fa-folder-open"></i> Browse
                                     </button>
                                 </div>
-                                
+
                                 <div class="monitoring-status" id="monitoring-status">
                                     <span class="status-indicator" id="watcher-status-indicator"></span>
                                     <span id="watcher-status-text">Checking status...</span>
                                 </div>
                             </div>
-                            
+
                             <div class="monitored-folders-list" id="monitored-folders-list">
                                 <!-- Monitored folders will be loaded here -->
                             </div>
-                            
+
                             <div class="monitoring-info">
                                 <h4>How Monitoring Works:</h4>
                                 <ul>
@@ -375,76 +625,124 @@
                 <!-- Voice Tab -->
                 <div class="tab-content" id="voice-tab">
                     <div class="section">
-                        <h2><i class="fas fa-microphone"></i> Voice Controls</h2>
-                        
-                        <div class="voice-settings">
-                            <div class="setting-group">
-                                <label for="voice-select">TTS Voice:</label>
-                                <select id="voice-select">
-                                    <option value="{{ audio_settings.current_voice }}">{{ audio_settings.current_voice }} (Current)</option>
-                                </select>
+                        <h2><i class="fas fa-microphone"></i> Voice Features</h2>
+
+                        <!-- Premium Voice Selection -->
+                        <div class="voice-selection">
+                            <h3><i class="fas fa-star"></i> Premium Voices (4 High-Quality Options)</h3>
+                            <div class="voice-grid" id="voice-grid">
+                                <!-- Voices will be loaded dynamically -->
                             </div>
-                            
-                            <div class="setting-group">
-                                <label for="speech-rate">Speech Rate:</label>
-                                <input type="range" id="speech-rate" min="120" max="220" value="{{ audio_settings.tts_rate }}">
-                                <span id="speech-rate-value">{{ audio_settings.tts_rate }}</span>
-                                <small>Optimal range: 160-200 WPM for natural speech</small>
-                            </div>
-                            
-                            <div class="voice-optimization">
-                                <h4>Voice Quality Optimization</h4>
-                                <div class="optimization-buttons">
-                                    <button class="btn btn-secondary" id="optimize-female">
-                                        <i class="fas fa-female"></i> Optimize for Female Voice
-                                    </button>
-                                    <button class="btn btn-secondary" id="optimize-male">
-                                        <i class="fas fa-male"></i> Optimize for Male Voice
-                                    </button>
-                                    <button class="btn btn-secondary" id="optimize-british">
-                                        <i class="fas fa-flag"></i> British Accent
-                                    </button>
-                                    <button class="btn btn-secondary" id="optimize-professional">
-                                        <i class="fas fa-briefcase"></i> Professional
-                                    </button>
+
+                            <div class="voice-controls">
+                                <div class="setting-group">
+                                    <label for="speech-rate">Speech Rate:</label>
+                                                                <input type="range" id="speech-rate" min="140" max="200" value="{{ audio_settings.tts_rate or 150 }}">
+                            <span id="speech-rate-value">{{ audio_settings.tts_rate or 150 }}</span>
+                                    <small>Optimal range: 150-170 WPM for natural speech</small>
                                 </div>
-                                <div class="optimization-result" id="voice-optimization-result" style="display: none;">
-                                    <!-- Optimization results will appear here -->
+
+                                <div class="voice-actions">
+                                    <p><small><i class="fas fa-info-circle"></i> Use the Preview buttons on the voice cards above to test voices, or use the TTS demo below.</small></p>
                                 </div>
-                            </div>
-                            
-                            <div class="voice-test">
-                                <button class="btn btn-primary" id="test-voice">
-                                    <i class="fas fa-volume-up"></i> Test Voice
-                                </button>
-                                <button class="btn btn-outline" id="apply-voice-settings">
-                                    <i class="fas fa-check"></i> Apply Settings
-                                </button>
                             </div>
                         </div>
 
+                        <!-- Voice Features -->
                         <div class="voice-features">
-                            <h3>Voice Features</h3>
-                            <div class="feature-grid">
-                                <div class="feature-card">
-                                    <i class="fas fa-microphone"></i>
-                                    <h4>Speech-to-Text</h4>
-                                    <p>Local Whisper processing for privacy</p>
-                                    <span class="status {% if audio_settings.whisper_available %}enabled{% else %}disabled{% endif %}">
-                                        {% if audio_settings.whisper_available %}Enabled{% else %}Disabled{% endif %}
+                            <h3><i class="fas fa-cogs"></i> How to Use Voice Features</h3>
+
+                            <!-- Voice Mode Activation -->
+                            <div class="feature-section">
+                                <div class="feature-header">
+                                    <h4><i class="fas fa-toggle-on"></i> How to Enable Voice Features</h4>
+                                    <span class="feature-status">
+                                        <i class="fas fa-info-circle text-primary"></i> Instructions
                                     </span>
                                 </div>
-                                <div class="feature-card">
-                                    <i class="fas fa-volume-up"></i>
-                                    <h4>Text-to-Speech</h4>
-                                    <p>macOS built-in voices</p>
-                                    <span class="status enabled">Enabled</span>
+                                <div class="feature-content">
+                                                                        <p><strong>Two separate controls for maximum flexibility:</strong></p>
+                                    <div class="usage-instructions">
+                                        <strong>How to use voice features:</strong>
+
+                                        <h5>🎤 Voice-To-Text (Speaking to the AI):</h5>
+                                        <ol>
+                                            <li>Go to the <strong>Chat</strong> tab</li>
+                                            <li>Click <strong>"Voice-To-Text Mode: Disabled"</strong> to enable it</li>
+                                            <li>A microphone button will appear below the text input</li>
+                                            <li>Hold <strong>"Hold to Record"</strong> and speak your message</li>
+                                            <li>Release to automatically send your message</li>
+                                        </ol>
+
+                                        <h5>🔊 Spoken Response Mode (AI reading responses):</h5>
+                                        <ol>
+                                            <li>Click <strong>"Spoken Response Mode: Disabled"</strong> to enable it</li>
+                                            <li>AI responses will automatically be read aloud</li>
+                                            <li>No additional action needed - just listen!</li>
+                                        </ol>
+                                    </div>
+                                    <div class="voice-chat-tip">
+                                        <i class="fas fa-lightbulb"></i>
+                                        <strong>Pro Tip:</strong> Enable both modes for full voice conversation, or use them separately as needed.
+                                    </div>
+                                    <div class="voice-limitation-note">
+                                        <i class="fas fa-info-circle"></i>
+                                        <strong>Note:</strong> Voice-to-Text uses "push-to-talk" mode - you need to hold the record button each time you want to speak.
+                                    </div>
                                 </div>
-                                <div class="feature-card">
-                                    <i class="fas fa-comments"></i>
-                                    <h4>Voice Chat</h4>
-                                    <p>Natural conversation mode</p>
-                                    <span class="status enabled">Ready</span>
+                            </div>
+
+                            <!-- What Each Feature Does -->
+                            <div class="feature-section">
+                                <div class="feature-header">
+                                    <h4><i class="fas fa-list"></i> What Voice Mode Includes</h4>
+                                    <span class="feature-status">
+                                        <i class="fas fa-check-circle text-success"></i> All Automatic
+                                    </span>
+                                </div>
+                                <div class="feature-content">
+                                    <div class="voice-features-grid">
+                                        <div class="voice-feature-item">
+                                            <i class="fas fa-microphone"></i>
+                                            <div>
+                                                <h5>Speech-to-Text</h5>
+                                                <p>Your speech is converted to text (happens when you hold the record button)</p>
+                                            </div>
+                                        </div>
+                                        <div class="voice-feature-item">
+                                            <i class="fas fa-volume-up"></i>
+                                            <div>
+                                                <h5>Text-to-Speech</h5>
+                                                <p>AI responses are read aloud in your selected voice (happens automatically)</p>
+                                            </div>
+                                        </div>
+                                                                                 <div class="voice-feature-item">
+                                             <i class="fas fa-comments"></i>
+                                             <div>
+                                                 <h5>Full Voice Chat</h5>
+                                                 <p>Voice conversation mode (both features working together)</p>
+                                             </div>
+                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Test Your Voice -->
+                            <div class="feature-section">
+                                <div class="feature-header">
+                                    <h4><i class="fas fa-play"></i> Test Text-to-Speech</h4>
+                                    <span class="feature-status">
+                                        <i class="fas fa-check-circle text-success"></i> Ready
+                                    </span>
+                                </div>
+                                <div class="feature-content">
+                                    <p>Test how your selected voice sounds before using it in chat:</p>
+                                    <div class="tts-demo">
+                                        <input type="text" id="tts-demo-text" placeholder="Type something to test..." value="Hello! This is a test of the text-to-speech system.">
+                                        <button class="btn btn-outline" id="test-tts-demo">
+                                            <i class="fas fa-play"></i> Test TTS
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -455,7 +753,7 @@
                 <div class="tab-content" id="reasoning-tab">
                     <div class="section">
                         <h2><i class="fas fa-lightbulb"></i> Hybrid Reasoning System</h2>
-                        
+
                         <!-- Current Stack Display -->
                         <div class="current-stack-display">
                             <h3>Current Reasoning Stack</h3>
@@ -561,7 +859,7 @@
                                     </label>
                                     <small>Use DSPy for automatic prompt optimization</small>
                                 </div>
-                                
+
                                 <div class="setting-group">
                                     <label for="performance-tracking">
                                         <input type="checkbox" id="performance-tracking" checked>
@@ -569,7 +867,7 @@
                                     </label>
                                     <small>Track strategy performance and usage statistics</small>
                                 </div>
-                                
+
                                 <div class="setting-group">
                                     <label for="confidence-threshold">Confidence Threshold:</label>
                                     <input type="range" id="confidence-threshold" min="0.1" max="1.0" step="0.1" value="0.7">
@@ -626,170 +924,8 @@
                         </div>
                     </div>
                 </div>
-                
-                <!-- Performance Tab -->
-                <div class="tab-content" id="performance-tab">
-                    <div class="section">
-                        <h2><i class="fas fa-chart-line"></i> Performance Monitoring</h2>
-                        
-                        <div class="performance-grid">
-                            <div class="metric-card">
-                                <h3>Response Time</h3>
-                                <div class="metric">
-                                    <span class="metric-label">Average:</span>
-                                    <span class="metric-value" id="perf-response-time">0.0s</span>
-                                </div>
-                                <div class="metric">
-                                    <span class="metric-label">Tokens/sec:</span>
-                                    <span class="metric-value" id="perf-tokens-sec">0</span>
-                                </div>
-                            </div>
-                            
-                            <div class="metric-card">
-                                <h3>Memory Usage</h3>
-                                <div class="metric">
-                                    <span class="metric-label">Used:</span>
-                                    <span class="metric-value" id="perf-memory">0GB</span>
-                                </div>
-                                <div class="metric">
-                                    <span class="metric-label">Available:</span>
-                                    <span class="metric-value" id="perf-memory-available">0GB</span>
-                                </div>
-                            </div>
-                            
-                            <div class="metric-card">
-                                <h3>System Stats</h3>
-                                <div class="metric">
-                                    <span class="metric-label">Documents:</span>
-                                    <span class="metric-value" id="perf-doc-count">0</span>
-                                </div>
-                                <div class="metric">
-                                    <span class="metric-label">Vectors:</span>
-                                    <span class="metric-value" id="perf-vector-count">0</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- MLX Performance Profiling Section -->
-                        <div class="profiling-section">
-                            <h3><i class="fas fa-microscope"></i> MLX Performance Profiling</h3>
-                            
-                            <div class="profiling-controls">
-                                <div class="setting-group">
-                                    <label for="profile-model-select">Model to Profile:</label>
-                                    <select id="profile-model-select">
-                                        <option value="">Current Model</option>
-                                        {% for model in models %}
-                                        <option value="{{ model.name }}">{{ model.name }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                                
-                                <div class="setting-group">
-                                    <label>
-                                        <input type="checkbox" id="quick-profiling" checked>
-                                        Quick Mode (faster profiling)
-                                    </label>
-                                </div>
-                            </div>
-                            
-                            <div class="profiling-actions">
-                                <button class="btn btn-primary" id="run-profiling">
-                                    <i class="fas fa-microscope"></i> Run Profiling
-                                </button>
-                                <button class="btn btn-secondary" id="compare-models">
-                                    <i class="fas fa-balance-scale"></i> Compare Models
-                                </button>
-                                <button class="btn btn-outline" id="optimization-guide">
-                                    <i class="fas fa-book"></i> Optimization Guide
-                                </button>
-                            </div>
-                            
-                            <!-- Profiling Results -->
-                            <div class="profiling-results" id="profiling-results" style="display: none;">
-                                <h4>Profiling Results</h4>
-                                <div class="results-summary" id="results-summary">
-                                    <!-- Results will be populated here -->
-                                </div>
-                                <div class="results-actions">
-                                    <button class="btn btn-secondary" id="download-results">
-                                        <i class="fas fa-download"></i> Download Report
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="performance-actions">
-                            <button class="btn btn-primary" id="refresh-metrics">
-                                <i class="fas fa-sync"></i> Refresh Metrics
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Settings Tab -->
-                <div class="tab-content" id="settings-tab">
-                    <div class="section">
-                        <h2><i class="fas fa-cog"></i> Settings</h2>
-                        
-                        <div class="settings-grid">
-                            <div class="setting-group">
-                                <h3>Generation Settings</h3>
-                                
-                                <div class="setting-item">
-                                    <label for="temperature">Temperature:</label>
-                                    <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7">
-                                    <span id="temperature-value">0.7</span>
-                                </div>
-                                
-                                <div class="setting-item">
-                                    <label for="max-tokens">Max Tokens:</label>
-                                    <input type="number" id="max-tokens" min="50" max="4000" value="2000">
-                                </div>
-                            </div>
-                            
-                            <div class="setting-group">
-                                <h3>Hugging Face Integration</h3>
-                                
-                                <div class="setting-item">
-                                    <label for="hf-token">Hugging Face Token (optional):</label>
-                                    <input type="password" id="hf-token" placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxx">
-                                    <small>Required only for gated models (like Llama). Leave empty for public models.</small>
-                                </div>
-                                
-                                <div class="setting-item">
-                                    <button class="btn btn-secondary" id="test-hf-token">
-                                        <i class="fas fa-check"></i> Test Token
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div class="setting-group">
-                                <h3>Vector Store Settings</h3>
-                                
-                                <div class="setting-item">
-                                    <label for="chunk-size">Chunk Size:</label>
-                                    <input type="number" id="chunk-size" min="100" max="2000" value="500">
-                                </div>
-                                
-                                <div class="setting-item">
-                                    <label for="top-k">Top K Results:</label>
-                                    <input type="number" id="top-k" min="1" max="20" value="5">
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="settings-actions">
-                            <button class="btn btn-primary" id="save-settings">
-                                <i class="fas fa-save"></i> Save Settings
-                            </button>
-                            <button class="btn btn-secondary" id="reset-settings">
-                                <i class="fas fa-undo"></i> Reset to Defaults
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                
+
+
             </div>
         </div>
     </div>
@@ -806,7 +942,7 @@
     </div>
 
     <!-- Include JavaScript -->
-    <script src="/static/js/app.js"></script>
-    <script src="/static/js/tab_loader.js"></script>
+    <script src="/static/js/app.js?v=2025-01-31-v4"></script>
+    <script src="/static/js/tab_loader.js?v=2025-01-31-v4"></script>
 </body>
 </html>

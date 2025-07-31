@@ -24,4 +24,4 @@ fi
 
 # Start LLMind
 echo "🚀 Starting LLMind..."
-python main.py 
+python main.py

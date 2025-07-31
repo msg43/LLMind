@@ -37,39 +37,39 @@ log_error() {
 
 check_requirements() {
     log_info "Checking system requirements..."
-    
+
     # Check Docker
     if ! command -v docker &> /dev/null; then
         log_error "Docker is not installed. Please install Docker first."
         exit 1
     fi
-    
+
     # Check Docker Compose
     if ! command -v docker-compose &> /dev/null; then
         log_error "Docker Compose is not installed. Please install Docker Compose first."
         exit 1
     fi
-    
+
     # Check if running on macOS (for Apple Silicon optimization)
     if [[ "$OSTYPE" == "darwin"* ]]; then
         log_info "Running on macOS - Apple Silicon optimizations enabled"
     else
         log_warning "Not running on macOS - some optimizations may not be available"
     fi
-    
+
     log_success "System requirements check completed"
 }
 
 backup_data() {
     log_info "Creating backup of existing data..."
-    
+
     mkdir -p "$BACKUP_DIR"
     timestamp=$(date +"%Y%m%d_%H%M%S")
     backup_file="$BACKUP_DIR/llmind_backup_$timestamp.tar.gz"
-    
+
     if docker volume ls | grep -q llmind; then
         log_info "Backing up Docker volumes..."
-        
+
         # Create temporary container to access volumes
                 docker run --rm -v llmind_models:/models \
             -v llmind_documents:/documents \
@@ -77,7 +77,7 @@ backup_data() {
                    -v "$(pwd)/$BACKUP_DIR":/backup \
                    alpine:latest \
                    tar czf "/backup/volumes_$timestamp.tar.gz" /models /documents /vector_store
-        
+
         log_success "Backup created: $backup_file"
     else
         log_info "No existing volumes found to backup"
@@ -86,40 +86,40 @@ backup_data() {
 
 deploy() {
     log_info "Starting $APP_NAME deployment..."
-    
+
     # Build and start containers
     log_info "Building Docker images..."
     docker-compose -f "$COMPOSE_FILE" build --no-cache
-    
+
     log_info "Starting containers..."
     docker-compose -f "$COMPOSE_FILE" up -d
-    
+
     # Wait for health check
     log_info "Waiting for application to be healthy..."
     timeout=120
     counter=0
-    
+
     while [ $counter -lt $timeout ]; do
         if docker-compose -f "$COMPOSE_FILE" ps | grep -q "healthy"; then
             log_success "$APP_NAME is running and healthy!"
             break
         fi
-        
+
         if [ $counter -eq $((timeout-10)) ]; then
             log_warning "Application is taking longer than expected to start..."
         fi
-        
+
         sleep 2
         counter=$((counter+2))
     done
-    
+
     if [ $counter -ge $timeout ]; then
         log_error "Application failed to start within $timeout seconds"
         log_info "Checking container logs..."
         docker-compose -f "$COMPOSE_FILE" logs --tail=50
         exit 1
     fi
-    
+
     # Display deployment info
     echo
     log_success "🚀 $APP_NAME deployed successfully!"
@@ -144,21 +144,21 @@ restart() {
 
 update() {
     log_info "Updating $APP_NAME..."
-    
+
     # Pull latest code (if in git repo)
     if [ -d ".git" ]; then
         log_info "Pulling latest code..."
         git pull
     fi
-    
+
     # Backup before update
     backup_data
-    
+
     # Rebuild and restart
     log_info "Rebuilding application..."
     docker-compose -f "$COMPOSE_FILE" build --no-cache
     docker-compose -f "$COMPOSE_FILE" up -d
-    
+
     log_success "Update completed"
 }
 
@@ -169,11 +169,11 @@ logs() {
 status() {
     log_info "$APP_NAME Status:"
     docker-compose -f "$COMPOSE_FILE" ps
-    
+
     echo
     log_info "Docker Volumes:"
     docker volume ls | grep llmind || log_info "No volumes found"
-    
+
     echo
     log_info "Resource Usage:"
     docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}" $(docker-compose -f "$COMPOSE_FILE" ps -q) 2>/dev/null || log_info "No running containers"
@@ -184,16 +184,16 @@ cleanup() {
     read -r response
     if [[ "$response" =~ ^[Yy]$ ]]; then
         log_info "Cleaning up $APP_NAME..."
-        
+
         # Stop and remove containers
         docker-compose -f "$COMPOSE_FILE" down -v --remove-orphans
-        
+
         # Remove images
         docker image prune -a -f --filter label=maintainer="LLMind Team"
-        
+
         # Remove volumes (optional)
         docker volume ls | grep llmind | awk '{print $2}' | xargs -r docker volume rm
-        
+
         log_success "Cleanup completed"
     else
         log_info "Cleanup cancelled"
@@ -260,4 +260,4 @@ case "${1:-}" in
         show_help
         exit 1
         ;;
-esac 
+esac

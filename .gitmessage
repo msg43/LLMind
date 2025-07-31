@@ -1,0 +1,14 @@
+# Type: Brief description (50 chars max)
+#
+# Longer explanation if needed (wrap at 72 chars)
+#
+# Types:
+# feat: New feature
+# fix: Bug fix
+# docs: Documentation changes
+# style: Code style changes (formatting, etc.)
+# refactor: Code refactoring
+# test: Adding or updating tests
+# chore: Maintenance tasks
+# perf: Performance improvements
+# ci: CI/CD changes

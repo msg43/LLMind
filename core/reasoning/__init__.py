@@ -8,6 +8,6 @@ from .hybrid_manager import HybridStackManager
 from .strategies import *
 
 __all__ = [
-    'DSPyWrapper',
-    'HybridStackManager',
-] 
+    "DSPyWrapper",
+    "HybridStackManager",
+]

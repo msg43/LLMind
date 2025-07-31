@@ -110,23 +110,23 @@ echo ""
 if $PYTEST_CMD; then
     echo ""
     echo "✅ All tests passed!"
-    
+
     if [ "$COVERAGE" = true ]; then
         echo ""
         echo "📊 Coverage report generated:"
         echo "   HTML Report: test_output/htmlcov/index.html"
-        
+
         # Try to open coverage report on macOS
         if [[ "$OSTYPE" == "darwin"* ]] && command -v open >/dev/null 2>&1; then
             echo "   Opening coverage report..."
             open test_output/htmlcov/index.html
         fi
     fi
-    
+
     echo ""
     echo "🧹 Cleaning up test data..."
     rm -rf test_output/data
-    
+
     echo "✨ Test run completed successfully!"
     exit 0
 else
@@ -137,12 +137,12 @@ else
     if [ "$COVERAGE" = true ]; then
         echo "📊 Coverage report: test_output/htmlcov/index.html"
     fi
-    
+
     echo ""
     echo "💡 Tips for debugging:"
     echo "   • Run with --verbose for more detailed output"
     echo "   • Use --test <filename> to run specific tests"
     echo "   • Check logs in test_output/data/logs/"
-    
+
     exit 1
-fi 
+fi

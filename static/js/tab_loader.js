@@ -1,33 +1,16 @@
 // Tab-specific content loader
 console.log('📂 Tab loader initialized');
 
-// Add event listeners to tab buttons
+// Note: Tab clicking is now handled by app.js to avoid conflicts
+// This file just provides the content loading functions
+
 document.addEventListener('DOMContentLoaded', function() {
-    const navTabs = document.querySelectorAll('.nav-tab');
-    
-    navTabs.forEach(tab => {
-        tab.addEventListener('click', function() {
-            const tabName = this.dataset.tab;
-            console.log(`📂 Loading content for ${tabName} tab`);
-            
-            // Wait a moment for tab to become active, then load content
-            setTimeout(() => {
-                loadTabContent(tabName);
-            }, 100);
-        });
-    });
-    
-    // Load content for initially active tab
-    const activeTab = document.querySelector('.tab-content.active');
-    if (activeTab) {
-        const tabName = activeTab.id.replace('-tab', '');
-        loadTabContent(tabName);
-    }
+    console.log('📂 Tab loader DOMContentLoaded - content loading functions available');
 });
 
 async function loadTabContent(tabName) {
     console.log(`🔄 Loading content for tab: ${tabName}`);
-    
+
     switch(tabName) {
         case 'history':
             await loadChatHistory();
@@ -45,11 +28,18 @@ async function loadTabContent(tabName) {
             await loadReasoning();
             break;
         case 'performance':
+            console.log('📊 Performance tab selected, loading data...');
+            // Ensure the performance tab is visible
+            const perfTab = document.getElementById('performance-tab');
+            if (perfTab) {
+                perfTab.style.display = 'block';
+                perfTab.style.visibility = 'visible';
+                perfTab.style.opacity = '1';
+                console.log('📊 Performance tab made visible');
+            }
             await loadPerformance();
             break;
-        case 'settings':
-            await loadSettings();
-            break;
+
     }
 }
 
@@ -139,7 +129,7 @@ async function loadModels() {
                 if (nameEl) nameEl.textContent = data.current_model.name || 'None';
                 if (statusEl) statusEl.textContent = data.current_model.status || 'Not loaded';
             }
-            
+
             // Update available models grid if it's empty (server-side rendering might not have loaded)
             const modelsGrid = document.getElementById('models-grid');
             if (modelsGrid && (!modelsGrid.innerHTML || modelsGrid.innerHTML.trim() === '')) {
@@ -158,7 +148,7 @@ async function loadModels() {
                                 </div>
                             </div>
                             <div class="model-actions">
-                                ${model.status === 'downloaded' ? 
+                                ${model.status === 'downloaded' ?
                                     `<button class="btn btn-primary switch-model" data-model="${model.name}">
                                         <i class="fas fa-play"></i> Use Model
                                     </button>` :
@@ -171,7 +161,7 @@ async function loadModels() {
                     `).join('');
                 }
             }
-            
+
             console.log('✅ Model info updated');
         }
     } catch (e) {
@@ -189,44 +179,113 @@ async function loadReasoning() {
 
 async function loadPerformance() {
     try {
+        console.log('📊 Loading performance data...');
         const response = await fetch('/api/performance');
         const data = await response.json();
+
         if (data.status === 'success') {
-            // Update performance metrics
-            const tokensEl = document.getElementById('perf-tokens-sec');
-            const responseTimeEl = document.getElementById('perf-response-time');
-            const memoryEl = document.getElementById('perf-memory');
-            const memoryAvailEl = document.getElementById('perf-memory-available');
-            const docCountEl = document.getElementById('perf-doc-count');
-            const vectorCountEl = document.getElementById('perf-vector-count');
-            
-            if (tokensEl && data.model_performance) {
-                tokensEl.textContent = data.model_performance.tokens_per_second.toFixed(1);
-            }
-            if (responseTimeEl && data.model_performance) {
-                responseTimeEl.textContent = data.model_performance.avg_response_time.toFixed(3) + 's';
-            }
-            if (memoryEl && data.model_performance) {
-                memoryEl.textContent = data.model_performance.memory_usage.used_gb.toFixed(1) + 'GB';
-            }
-            if (memoryAvailEl && data.model_performance) {
-                memoryAvailEl.textContent = data.model_performance.memory_usage.available_gb.toFixed(1) + 'GB';
-            }
-            if (docCountEl) {
-                docCountEl.textContent = data.document_count || 0;
-            }
-            if (vectorCountEl && data.vector_store) {
-                vectorCountEl.textContent = data.vector_store.total_vectors || 0;
-            }
-            
-            console.log('✅ Performance metrics loaded');
+            // Update model performance metrics
+            updateElement('perf-tokens-sec', data.model_performance?.tokens_per_second?.toFixed(1) || '--');
+            updateElement('perf-response-time', data.model_performance?.avg_response_time?.toFixed(3) + 's' || '--');
+            updateElement('perf-gpu', data.model_performance?.gpu_utilization?.toFixed(1) + '%' || '--');
+
+            // Update memory usage
+            const memUsage = data.model_performance?.memory_usage || {};
+            updateElement('perf-memory-used', memUsage.used_gb ? memUsage.used_gb.toFixed(1) + 'GB' : '--');
+            updateElement('perf-memory-available', memUsage.total_gb ? (memUsage.total_gb - memUsage.used_gb).toFixed(1) + 'GB' : '--');
+            updateElement('perf-memory-peak', memUsage.used_gb ? memUsage.used_gb.toFixed(1) + 'GB' : '--');
+
+            // Update system stats
+            updateElement('perf-doc-count', data.document_count || '0');
+            updateElement('perf-vector-count', data.vector_store?.total_vectors || '0');
+            updateElement('perf-conversation-count', data.chat_performance?.total_conversations || '0');
+
+            // Update chat performance
+            updateElement('perf-chat-response', data.chat_performance?.avg_response_time?.toFixed(3) + 's' || '--');
+            updateElement('perf-total-messages', data.chat_performance?.total_conversations ? (data.chat_performance.total_conversations * 2) : '0');
+
+            // Get current model info
+            const modelResponse = await fetch('/api/status');
+            const modelData = await modelResponse.json();
+            updateElement('perf-active-model', modelData.model?.name?.split('/').pop() || 'None');
+
+            console.log('✅ Performance metrics loaded successfully');
+        } else {
+            console.error('Failed to load performance data:', data.message);
         }
     } catch (e) {
         console.error('Failed to load performance metrics:', e);
+        // Set all values to error state
+        const perfElements = [
+            'perf-tokens-sec', 'perf-response-time', 'perf-gpu',
+            'perf-memory-used', 'perf-memory-available', 'perf-memory-peak',
+            'perf-doc-count', 'perf-vector-count', 'perf-conversation-count',
+            'perf-chat-response', 'perf-total-messages', 'perf-active-model'
+        ];
+        perfElements.forEach(id => updateElement(id, 'Error'));
     }
 }
 
-async function loadSettings() {
-    console.log('⚙️ Settings tab loaded');
-    // Settings are static in the HTML, but we could load current values from API if needed
-} 
+function updateElement(id, value) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.textContent = value;
+    } else {
+        console.warn(`Element not found: ${id}`);
+    }
+}
+
+// Simple test function to manually check performance loading
+window.debugPerformance = function() {
+    console.log('🔍 Debug: Testing performance elements...');
+
+    // Test if elements exist
+    const testElements = [
+        'perf-tokens-sec', 'perf-response-time', 'perf-gpu',
+        'perf-memory-used', 'perf-memory-available', 'perf-memory-peak',
+        'perf-doc-count', 'perf-vector-count', 'perf-conversation-count'
+    ];
+
+    testElements.forEach(id => {
+        const el = document.getElementById(id);
+        console.log(`Element ${id}:`, el ? 'EXISTS' : 'MISSING');
+    });
+
+    // Test API directly
+    fetch('/api/performance')
+        .then(r => r.json())
+        .then(data => {
+            console.log('API Response:', data);
+            if (data.status === 'success') {
+                console.log('✅ API working, calling loadPerformance...');
+                loadPerformance();
+            }
+        })
+        .catch(e => console.error('API Error:', e));
+}
+
+// Force show performance tab and load data
+window.showPerformanceTab = function() {
+    console.log('🔧 Forcing performance tab to show...');
+
+    // Hide all other tabs
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+        tab.style.display = 'none';
+    });
+
+    // Show performance tab
+    const perfTab = document.getElementById('performance-tab');
+    if (perfTab) {
+        perfTab.classList.add('active');
+        perfTab.style.display = 'block';
+        perfTab.style.visibility = 'visible';
+        perfTab.style.opacity = '1';
+        console.log('✅ Performance tab forced visible');
+
+        // Load data
+        loadPerformance();
+    } else {
+        console.error('❌ Performance tab not found!');
+    }
+}

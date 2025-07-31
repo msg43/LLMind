@@ -1,0 +1,59 @@
+# Pre-commit hooks for LLMind project
+# Run: pre-commit install to set up
+# Run: pre-commit run --all-files to check all files
+
+repos:
+  # Python code formatting
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        language_version: python3
+        args: [--line-length=88]
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: [--profile=black, --multi-line=3]
+
+  # Python linting (disabled for initial setup)
+  # - repo: https://github.com/pycqa/flake8
+  #   rev: 7.0.0
+  #   hooks:
+  #     - id: flake8
+  #       args: [--max-line-length=88, --extend-ignore=E203,W503,E501]
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: \.md$
+      - id: end-of-file-fixer
+        exclude: \.md$
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: debug-statements
+
+# Global excludes
+exclude: |
+  (?x)^(
+    .*\.min\.(js|css)$|
+    .*\.bundle\.(js|css)$|
+    node_modules/.*|
+    venv/.*|
+    \.venv/.*|
+    models/.*|
+    vector_store/.*|
+    logs/.*|
+    data/.*|
+    documents/.*|
+    .*\.log$|
+    .*\.backup$|
+    .*\.rsls$
+  )$

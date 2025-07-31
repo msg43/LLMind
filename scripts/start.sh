@@ -70,4 +70,4 @@ uvicorn main:app \
     --port "$PORT" \
     --log-level "$LOG_LEVEL" \
     --access-log \
-    --loop uvloop 
+    --loop uvloop

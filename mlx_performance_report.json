@@ -1,0 +1,311 @@
+{
+  "timestamp": "2025-07-20T22:09:43.529859",
+  "system_info": {
+    "total_memory_gb": 96.0,
+    "cpu_count": 12,
+    "python_version": "3.12.7 (main, Nov 13 2024, 16:32:01) [Clang 16.0.0 (clang-1600.0.26.4)]"
+  },
+  "profiling_results": [
+    {
+      "tokens_per_second": 73.16368943783499,
+      "total_time": 1.8163229589699768,
+      "prompt_processing_time": 0.1816322958969977,
+      "generation_time": 1.6346906630729792,
+      "memory_usage": {
+        "used_gb": 43.11955261230469,
+        "delta_gb": 0.852264404296875,
+        "peak_gb": 2.558249980211258e-05
+      },
+      "gpu_utilization": 70.0,
+      "cpu_usage": 27.65,
+      "model_name": "mlx-community/Llama-3.1-8B-Instruct-4bit",
+      "prompt_length": 25,
+      "output_length": 481,
+      "temperature": 0.7,
+      "max_tokens": 100
+    },
+    {
+      "tokens_per_second": 80.77782083239227,
+      "total_time": 1.6451160419965163,
+      "prompt_processing_time": 0.16451160419965163,
+      "generation_time": 1.4806044377968646,
+      "memory_usage": {
+        "used_gb": 43.11363220214844,
+        "delta_gb": -0.0041656494140625,
+        "peak_gb": 3.4246593713760376e-05
+      },
+      "gpu_utilization": 70.0,
+      "cpu_usage": 17.9,
+      "model_name": "mlx-community/Llama-3.1-8B-Instruct-4bit",
+      "prompt_length": 25,
+      "output_length": 481,
+      "temperature": 0.7,
+      "max_tokens": 100
+    },
+    {
+      "tokens_per_second": 75.25001444060592,
+      "total_time": 1.650793334003538,
+      "prompt_processing_time": 0.1650793334003538,
+      "generation_time": 1.4857140006031841,
+      "memory_usage": {
+        "used_gb": 43.0740966796875,
+        "delta_gb": -0.01116943359375,
+        "peak_gb": 2.8442591428756714e-05
+      },
+      "gpu_utilization": 70.0,
+      "cpu_usage": 18.85,
+      "model_name": "mlx-community/Llama-3.1-8B-Instruct-4bit",
+      "prompt_length": 82,
+      "output_length": 599,
+      "temperature": 0.7,
+      "max_tokens": 100
+    },
+    {
+      "tokens_per_second": 74.97810719845924,
+      "total_time": 1.6567799170152284,
+      "prompt_processing_time": 0.16567799170152286,
+      "generation_time": 1.4911019253137057,
+      "memory_usage": {
+        "used_gb": 43.08064270019531,
+        "delta_gb": 0.0067138671875,
+        "peak_gb": 2.932082861661911e-05
+      },
+      "gpu_utilization": 70.0,
+      "cpu_usage": 18.1,
+      "model_name": "mlx-community/Llama-3.1-8B-Instruct-4bit",
+      "prompt_length": 82,
+      "output_length": 599,
+      "temperature": 0.7,
+      "max_tokens": 100
+    },
+    {
+      "tokens_per_second": 65.03691215509058,
+      "total_time": 1.7101399580133148,
+      "prompt_processing_time": 0.17101399580133148,
+      "generation_time": 1.5391259622119833,
+      "memory_usage": {
+        "used_gb": 43.011749267578125,
+        "delta_gb": 4.57763671875e-05,
+        "peak_gb": 2.827867865562439e-05
+      },
+      "gpu_utilization": 70.0,
+      "cpu_usage": 19.05,
+      "model_name": "mlx-community/Llama-3.1-8B-Instruct-4bit",
+      "prompt_length": 260,
+      "output_length": 557,
+      "temperature": 0.7,
+      "max_tokens": 100
+    },
+    {
+      "tokens_per_second": 64.77297754905416,
+      "total_time": 1.7171083749854006,
+      "prompt_processing_time": 0.17171083749854008,
+      "generation_time": 1.5453975374868605,
+      "memory_usage": {
+        "used_gb": 42.99183654785156,
+        "delta_gb": -0.02392578125,
+        "peak_gb": 2.828706055879593e-05
+      },
+      "gpu_utilization": 70.0,
+      "cpu_usage": 18.35,
+      "model_name": "mlx-community/Llama-3.1-8B-Instruct-4bit",
+      "prompt_length": 260,
+      "output_length": 557,
+      "temperature": 0.7,
+      "max_tokens": 100
+    },
+    {
+      "tokens_per_second": 75.1873827502095,
+      "total_time": 1.6521684580366127,
+      "prompt_processing_time": 0.16521684580366128,
+      "generation_time": 1.4869516122329514,
+      "memory_usage": {
+        "used_gb": 43.05070495605469,
+        "delta_gb": 0.0010223388671875,
+        "peak_gb": 2.8609298169612885e-05
+      },
+      "gpu_utilization": 70.0,
+      "cpu_usage": 20.6,
+      "model_name": "mlx-community/Llama-3.1-8B-Instruct-4bit",
+      "prompt_length": 82,
+      "output_length": 599,
+      "temperature": 0.7,
+      "max_tokens": 100
+    },
+    {
+      "tokens_per_second": 69.80487336885241,
+      "total_time": 1.7795637500239536,
+      "prompt_processing_time": 0.17795637500239536,
+      "generation_time": 1.6016073750215583,
+      "memory_usage": {
+        "used_gb": 43.05296325683594,
+        "delta_gb": 0.000823974609375,
+        "peak_gb": 2.9403716325759888e-05
+      },
+      "gpu_utilization": 70.0,
+      "cpu_usage": 20.1,
+      "model_name": "mlx-community/Llama-3.1-8B-Instruct-4bit",
+      "prompt_length": 82,
+      "output_length": 599,
+      "temperature": 0.7,
+      "max_tokens": 100
+    },
+    {
+      "tokens_per_second": 75.34133523407924,
+      "total_time": 1.6487924170214683,
+      "prompt_processing_time": 0.16487924170214685,
+      "generation_time": 1.4839131753193215,
+      "memory_usage": {
+        "used_gb": 43.05036926269531,
+        "delta_gb": 0.0005645751953125,
+        "peak_gb": 2.8355978429317474e-05
+      },
+      "gpu_utilization": 70.0,
+      "cpu_usage": 19.4,
+      "model_name": "mlx-community/Llama-3.1-8B-Instruct-4bit",
+      "prompt_length": 82,
+      "output_length": 599,
+      "temperature": 0.9,
+      "max_tokens": 100
+    },
+    {
+      "tokens_per_second": 73.57915156687271,
+      "total_time": 1.6882801660103723,
+      "prompt_processing_time": 0.16882801660103725,
+      "generation_time": 1.5194521494093352,
+      "memory_usage": {
+        "used_gb": 43.004180908203125,
+        "delta_gb": -0.0324249267578125,
+        "peak_gb": 2.8448179364204407e-05
+      },
+      "gpu_utilization": 70.0,
+      "cpu_usage": 18.4,
+      "model_name": "mlx-community/Llama-3.1-8B-Instruct-4bit",
+      "prompt_length": 82,
+      "output_length": 599,
+      "temperature": 0.9,
+      "max_tokens": 100
+    },
+    {
+      "tokens_per_second": 74.44799920471918,
+      "total_time": 1.6685770410113037,
+      "prompt_processing_time": 0.16685770410113038,
+      "generation_time": 1.5017193369101733,
+      "memory_usage": {
+        "used_gb": 42.96504211425781,
+        "delta_gb": -0.0454864501953125,
+        "peak_gb": 2.8355978429317474e-05
+      },
+      "gpu_utilization": 70.0,
+      "cpu_usage": 18.25,
+      "model_name": "mlx-community/Llama-3.1-8B-Instruct-4bit",
+      "prompt_length": 82,
+      "output_length": 599,
+      "temperature": 0.1,
+      "max_tokens": 100
+    },
+    {
+      "tokens_per_second": 75.075729213945,
+      "total_time": 1.6546255830326118,
+      "prompt_processing_time": 0.16546255830326118,
+      "generation_time": 1.4891630247293506,
+      "memory_usage": {
+        "used_gb": 42.94969177246094,
+        "delta_gb": -0.0157470703125,
+        "peak_gb": 2.8050504624843597e-05
+      },
+      "gpu_utilization": 70.0,
+      "cpu_usage": 19.5,
+      "model_name": "mlx-community/Llama-3.1-8B-Instruct-4bit",
+      "prompt_length": 82,
+      "output_length": 599,
+      "temperature": 0.1,
+      "max_tokens": 100
+    },
+    {
+      "tokens_per_second": 71.02210997603876,
+      "total_time": 0.8948700000182725,
+      "prompt_processing_time": 0.08948700000182726,
+      "generation_time": 0.8053830000164452,
+      "memory_usage": {
+        "used_gb": 43.00311279296875,
+        "delta_gb": -0.0009613037109375,
+        "peak_gb": 2.342555671930313e-05
+      },
+      "gpu_utilization": 70.0,
+      "cpu_usage": 22.0,
+      "model_name": "mlx-community/Llama-3.1-8B-Instruct-4bit",
+      "prompt_length": 82,
+      "output_length": 293,
+      "temperature": 0.7,
+      "max_tokens": 50
+    },
+    {
+      "tokens_per_second": 72.66295815473492,
+      "total_time": 0.8746623750193976,
+      "prompt_processing_time": 0.08746623750193977,
+      "generation_time": 0.7871961375174579,
+      "memory_usage": {
+        "used_gb": 42.91375732421875,
+        "delta_gb": 0.01190185546875,
+        "peak_gb": 2.347491681575775e-05
+      },
+      "gpu_utilization": 70.0,
+      "cpu_usage": 19.35,
+      "model_name": "mlx-community/Llama-3.1-8B-Instruct-4bit",
+      "prompt_length": 82,
+      "output_length": 293,
+      "temperature": 0.7,
+      "max_tokens": 50
+    },
+    {
+      "tokens_per_second": 70.8734273323594,
+      "total_time": 3.4035636669723317,
+      "prompt_processing_time": 0.3403563666972332,
+      "generation_time": 3.0632073002750984,
+      "memory_usage": {
+        "used_gb": 42.947967529296875,
+        "delta_gb": 0.0153045654296875,
+        "peak_gb": 3.3156946301460266e-05
+      },
+      "gpu_utilization": 70.0,
+      "cpu_usage": 19.9,
+      "model_name": "mlx-community/Llama-3.1-8B-Instruct-4bit",
+      "prompt_length": 82,
+      "output_length": 1169,
+      "temperature": 0.7,
+      "max_tokens": 200
+    },
+    {
+      "tokens_per_second": 63.65942307231572,
+      "total_time": 3.7892618339974433,
+      "prompt_processing_time": 0.3789261833997444,
+      "generation_time": 3.410335650597699,
+      "memory_usage": {
+        "used_gb": 42.99629211425781,
+        "delta_gb": 0.002166748046875,
+        "peak_gb": 3.30628827214241e-05
+      },
+      "gpu_utilization": 70.0,
+      "cpu_usage": 22.35,
+      "model_name": "mlx-community/Llama-3.1-8B-Instruct-4bit",
+      "prompt_length": 82,
+      "output_length": 1169,
+      "temperature": 0.7,
+      "max_tokens": 200
+    }
+  ],
+  "analysis": {
+    "performance_summary": {
+      "avg_tokens_per_second": 72.22711946797276,
+      "max_tokens_per_second": 80.77782083239227,
+      "min_tokens_per_second": 63.65942307231572,
+      "std_tokens_per_second": 4.575619116886257,
+      "avg_total_time": 1.828164117257984,
+      "avg_memory_usage": 43.02034950256348,
+      "avg_gpu_utilization": 70.0
+    },
+    "bottleneck_analysis": [],
+    "optimization_recommendations": []
+  }
+}

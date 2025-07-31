@@ -1,9 +1,11 @@
+import os
+from pathlib import Path
+
 from fastapi import APIRouter, Response
 from fastapi.responses import FileResponse
-from pathlib import Path
-import os
 
 router = APIRouter()
+
 
 @router.get("/favicon.ico")
 async def favicon():
@@ -13,4 +15,4 @@ async def favicon():
         return FileResponse(favicon_path)
     else:
         # Return empty response if favicon doesn't exist yet
-        return Response(status_code=204) 
+        return Response(status_code=204)

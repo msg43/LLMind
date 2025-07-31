@@ -85,4 +85,4 @@ uvicorn main:app \
     --reload-exclude "__pycache__" \
     --log-level debug \
     --access-log \
-    --loop uvloop 
+    --loop uvloop

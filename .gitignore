@@ -20,6 +20,7 @@ parts/
 sdist/
 var/
 wheels/
+pip-wheel-metadata/
 share/python-wheels/
 *.egg-info/
 .installed.cfg
@@ -49,7 +50,6 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
-cover/
 
 # Translations
 *.mo
@@ -72,7 +72,6 @@ instance/
 docs/_build/
 
 # PyBuilder
-.pybuilder/
 target/
 
 # Jupyter Notebook
@@ -83,9 +82,7 @@ profile_default/
 ipython_config.py
 
 # pyenv
-#   For a library or package, you might want to ignore these files since the code is
-#   intended to run in multiple environments; otherwise, check them in:
-# .python-version
+.python-version
 
 # pipenv
 #   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
@@ -94,22 +91,7 @@ ipython_config.py
 #   install all needed dependencies.
 #Pipfile.lock
 
-# poetry
-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
-#poetry.lock
-
-# pdm
-#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
-#pdm.lock
-#   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
-#   in version control.
-#   https://pdm.fming.dev/#use-with-ide
-.pdm.toml
-
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
+# PEP 582; used by e.g. github.com/David-OConnor/pyflow
 __pypackages__/
 
 # Celery stuff
@@ -146,113 +128,48 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# pytype static type analyzer
-.pytype/
-
-# Cython debug symbols
-cython_debug/
-
-# PyCharm
-#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#  be added to the global gitignore or merged into this project gitignore.  For PyCharm
-#  Community Edition, use 'PyCharm CE'.  For PyCharm Professional Edition, use 'PyCharm'.
-.idea/
-
-# LLMind Specific Ignores
-# ========================
-
-# Data directories
-data/
-documents/
+# LLMind specific
+models/
 vector_store/
 logs/
-
-# Downloaded models and model files
-models/
-*.gguf
-*.safetensors
-*.bin
-*.pt
-*.pth
-
-# Audio files
-*.wav
-*.mp3
-*.m4a
-*.aac
-*.flac
-
-# Document uploads
-uploads/
-temp/
-
-# Vector store files
-*.faiss
-*.index
-*.pkl
-*.pickle
-
-# Log files
+data/
+documents/
 *.log
-*.log.*
+*.backup
+*.rsls
+backend.log
 
-# Configuration files with secrets
-.env
-.env.local
-.env.production
-config.local.py
-secrets.json
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
 
-# macOS specific
+# OS
 .DS_Store
-.AppleDouble
-.LSOverride
-
-# Thumbnails
+.DS_Store?
 ._*
-
-# Files that might appear in the root of a volume
-.DocumentRevisions-V100
-.fseventsd
 .Spotlight-V100
-.TemporaryItems
 .Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
+ehthumbs.db
+Thumbs.db
 
-# Directories potentially created on remote AFP share
-.AppleDB
-.AppleDesktop
-Network Trash Folder
-Temporary Items
-.apdisk
-
-# Docker
-.dockerignore
-docker-compose.override.yml
-
-# Node.js (if using any frontend build tools)
+# Node.js (if using any Node tools)
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Editor specific
-.vscode/
-.vim/
-*.swp
-*.swo
+# Pre-commit
+.pre-commit-config.yaml.backup
+
+# Temporary files
+*.tmp
+*.temp
 *~
 
-# Development history
-.specstory/
+# Security
+.secrets.baseline.bak
 
-# Virtual environment
-venv/
-
-# Performance reports (optional - comment out if you want to include them)
-mlx_performance_plots.png
-mlx_performance_report.json
-
-# Startup logs
-startup.log 
+# Version file
+_version.py

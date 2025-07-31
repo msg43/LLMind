@@ -22,7 +22,7 @@
         async function runTests() {
             const results = document.getElementById('results');
             results.innerHTML = '<div class="test-result">Running API tests...</div>';
-            
+
             // Test 1: Check if we can fetch chat history
             try {
                 const response = await fetch('/api/chats');
@@ -34,7 +34,7 @@
             } catch (e) {
                 results.innerHTML += `<div class="test-result error">❌ Chat API: ${e.message}</div>`;
             }
-            
+
             // Test 2: Check documents API
             try {
                 const response = await fetch('/api/documents');
@@ -43,7 +43,7 @@
             } catch (e) {
                 results.innerHTML += `<div class="test-result error">❌ Documents API: ${e.message}</div>`;
             }
-            
+
             // Test 3: Check models API
             try {
                 const response = await fetch('/api/models');
@@ -55,7 +55,7 @@
             } catch (e) {
                 results.innerHTML += `<div class="test-result error">❌ Models API: ${e.message}</div>`;
             }
-            
+
             // Test 4: Check status API
             try {
                 const response = await fetch('/api/status');
@@ -65,11 +65,11 @@
                 results.innerHTML += `<div class="test-result error">❌ Status API: ${e.message}</div>`;
             }
         }
-        
+
         function goToMainApp() {
             window.location.href = '/';
         }
-        
+
         function showManualFix() {
             const results = document.getElementById('results');
             results.innerHTML = `
@@ -94,11 +94,11 @@ if (window.llmindApp) {
                 </div>
             `;
         }
-        
+
         // Auto-run tests on load
         window.onload = () => {
             runTests();
         };
     </script>
 </body>
-</html> 
+</html>

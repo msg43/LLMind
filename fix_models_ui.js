@@ -1,13 +1,13 @@
 // Missing function to update the models grid
 function updateModelsGrid(models) {
     console.log('📊 Updating models grid with', models.length, 'models');
-    
+
     const modelsGrid = document.getElementById('models-grid');
     if (!modelsGrid) {
         console.error('❌ Models grid element not found');
         return;
     }
-    
+
     modelsGrid.innerHTML = models.map(model => `
         <div class="model-card" data-model-name="${model.name}">
             <div class="model-header">
@@ -22,7 +22,7 @@ function updateModelsGrid(models) {
                 </div>
             </div>
             <div class="model-actions">
-                ${model.status === 'downloaded' ? 
+                ${model.status === 'downloaded' ?
                     `<button class="btn btn-primary switch-model" data-model="${model.name}">
                         <i class="fas fa-play"></i> Use Model
                     </button>` :
@@ -33,7 +33,7 @@ function updateModelsGrid(models) {
             </div>
         </div>
     `).join('');
-    
+
     console.log('✅ Models grid updated successfully');
 }
 
