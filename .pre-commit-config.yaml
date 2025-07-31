@@ -17,12 +17,11 @@ repos:
       - id: isort
         args: [--profile=black, --multi-line=3]
 
-  # Python linting (disabled for initial setup)
-  # - repo: https://github.com/pycqa/flake8
-  #   rev: 7.0.0
-  #   hooks:
-  #     - id: flake8
-  #       args: [--max-line-length=88, --extend-ignore=E203,W503,E501]
+  # Python linting
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
 
   # General file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
