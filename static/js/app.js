@@ -464,6 +464,23 @@ class LLMindApp {
                 } else {
                     console.log(`Value span not found for ${input.id}`);
                 }
+
+                // Sync TTS rate sliders
+                if (input.id === 'tts-rate') {
+                    const speechRateSlider = document.getElementById('speech-rate');
+                    const speechRateValue = document.getElementById('speech-rate-value');
+                    if (speechRateSlider && speechRateValue) {
+                        speechRateSlider.value = input.value;
+                        speechRateValue.textContent = input.value;
+                    }
+                } else if (input.id === 'speech-rate') {
+                    const ttsRateSlider = document.getElementById('tts-rate');
+                    const ttsRateValue = document.getElementById('tts-rate-value');
+                    if (ttsRateSlider && ttsRateValue) {
+                        ttsRateSlider.value = input.value;
+                        ttsRateValue.textContent = input.value;
+                    }
+                }
             };
 
             input.addEventListener('input', updateValue);
@@ -1948,6 +1965,7 @@ class LLMindApp {
 
         // Audio settings
         this.setSliderValue('tts-rate', settings.ttsRate);
+        this.setSliderValue('speech-rate', settings.ttsRate); // Voice tab speech rate
         this.setCheckbox('enable-audio-feedback', settings.audioFeedback);
         this.setSliderValue('audio-volume', settings.audioVolume);
 
