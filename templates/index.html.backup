@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ app_name }} - Local AI Assistant</title>
+    
+    <!-- Favicons -->
+    <link rel="icon" type="image/x-icon" href="/static/favicon/favicon.ico">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon/favicon-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon/favicon-32x32.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/favicon/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/favicon/android-chrome-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/static/favicon/android-chrome-512x512.png">
+    <link rel="manifest" href="/static/favicon/site.webmanifest">
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1><i class="fas fa-rocket"></i> {{ app_name }}</h1>
+                <div class="header-info">
+                    <span class="version">v{{ version }}</span>
+                    <div class="status-indicator" id="status-indicator">
+                        <i class="fas fa-circle"></i>
+                        <span>Connecting...</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Dashboard -->
+        <div class="dashboard">
+            <!-- Sidebar -->
+            <nav class="sidebar">
+                <div class="nav-tabs">
+                    <button class="nav-tab active" data-tab="chat">
+                        <i class="fas fa-comments"></i>
+                        <span>Chat</span>
+                    </button>
+                    <button class="nav-tab" data-tab="history">
+                        <i class="fas fa-history"></i>
+                        <span>Chat History</span>
+                    </button>
+                    <button class="nav-tab" data-tab="models">
+                        <i class="fas fa-brain"></i>
+                        <span>Models</span>
+                    </button>
+                    <button class="nav-tab" data-tab="documents">
+                        <i class="fas fa-file-alt"></i>
+                        <span>Documents</span>
+                    </button>
+                    <button class="nav-tab" data-tab="voice">
+                        <i class="fas fa-microphone"></i>
+                        <span>Voice</span>
+                    </button>
+                    <button class="nav-tab" data-tab="reasoning">
+                        <i class="fas fa-lightbulb"></i>
+                        <span>Reasoning</span>
+                    </button>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <main class="main-content">
+                <!-- Chat Tab -->
+                <div class="tab-content active" id="chat-tab">
+                    <div class="chat-container">
+                        <div class="chat-header">
+                            <h2><i class="fas fa-comments"></i> AI Assistant</h2>
+                            <div class="chat-controls">
+                                <div class="library-selection">
+                                    <label for="chat-library-select">Chatting with:</label>
+                                    <select id="chat-library-select" class="library-select">
+                                        <option value="default">Default Library</option>
+                                    </select>
+                                </div>
+                                
+                                <button class="btn btn-secondary" id="new-chat-btn" title="Start New Chat">
+                                    <i class="fas fa-plus"></i> New Chat
+                                </button>
+                                <button class="btn btn-secondary" id="export-chat-btn" style="display: none;" title="Export Chat">
+                                    <i class="fas fa-download"></i> Export
+                                </button>
+
+                                <button class="btn btn-outline voice-mode-btn" id="voice-to-text-toggle">
+                                    <i class="fas fa-microphone"></i> Voice-To-Text Mode: Disabled
+                                </button>
+                                <button class="btn btn-outline voice-mode-btn" id="spoken-response-toggle">
+                                    <i class="fas fa-volume-up"></i> Spoken Response Mode: Disabled
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="chat-messages" id="chat-messages">
+                            <div class="welcome-message">
+                                <div class="message assistant">
+                                    <div class="message-content">
+                                        <p><strong>Welcome to {{ app_name }}!</strong></p>
+                                        <p>I'm your local AI assistant with access to your document collection. Ask me anything about your uploaded documents, or have a general conversation. I'm powered by MLX and optimized for Apple Silicon.</p>
+                                        <p><em>Try asking: "What documents do I have?" or upload some files to get started!</em></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="chat-input-container">
+                            <div class="voice-controls" id="voice-controls" style="display: none;">
+                                <button class="voice-btn" id="record-btn">
+                                    <i class="fas fa-microphone"></i>
+                                    <span>Hold to Record</span>
+                                </button>
+                                <div class="voice-status" id="voice-status"></div>
+                            </div>
+                            
+                            <div class="chat-input-group">
+                                <textarea 
+                                    id="chat-input" 
+                                    placeholder="Ask me anything about your documents..." 
+                                    rows="1"
+                                    maxlength="2000"
+                                ></textarea>
+                                <button class="btn btn-primary" id="send-btn">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat History Tab -->
+                <div class="tab-content" id="history-tab">
+                    <div class="section">
+                        <h2><i class="fas fa-history"></i> Chat History</h2>
+                        
+                        <div class="chat-history-controls">
+                            <button class="btn btn-primary" id="new-chat-history-btn" title="Start New Chat">
+                                <i class="fas fa-plus"></i> Start New Chat
+                            </button>
+                            <button class="btn btn-secondary" id="export-all-chats-btn" title="Export All Chats">
+                                <i class="fas fa-download"></i> Export All
+                            </button>
+                        </div>
+
+                        <div class="chat-history-container">
+                            <div class="chat-history-list" id="chat-history-main-list">
+                                <div class="loading-chats">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                    <span>Loading chat history...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Export Modal -->
+                <div class="modal" id="export-modal" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3><i class="fas fa-download"></i> Export Chat</h3>
+                            <button class="modal-close" id="close-export-modal">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="setting-group">
+                                <label for="export-folder">Export Location:</label>
+                                <div class="folder-selector">
+                                    <input type="text" id="export-folder" placeholder="Choose folder..." readonly>
+                                    <button class="btn btn-secondary" id="browse-folder-btn">
+                                        <i class="fas fa-folder-open"></i> Browse
+                                    </button>
+                                </div>
+                                <small>Select where to save the markdown file</small>
+                            </div>
+                            <div class="setting-group">
+                                <label>
+                                    <input type="checkbox" id="remember-folder" checked>
+                                    Remember this location for future exports
+                                </label>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" id="cancel-export">Cancel</button>
+                            <button class="btn btn-primary" id="confirm-export">Export</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Models Tab -->
+                <div class="tab-content" id="models-tab">
+                    <div class="section">
+                        <h2><i class="fas fa-brain"></i> MLX Model Management</h2>
+                        
+                        <div class="current-model">
+                            <h3>Current Model</h3>
+                            <div class="model-info">
+                                <div class="model-details">
+                                    <strong id="current-model-name">{{ current_model.name or "None" }}</strong>
+                                    <span class="model-status" id="current-model-status">
+                                        {{ current_model.status or "Not loaded" }}
+                                    </span>
+                                </div>
+                                <div class="model-stats">
+                                    <span>Tokens/sec: <strong id="tokens-per-sec">{{ performance.tokens_per_second|round(1) }}</strong></span>
+                                    <span>Memory: <strong id="memory-usage">{{ performance.memory_usage.used_gb|round(1) }}GB</strong></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Custom model input -->
+                        <div class="setting-group" style="margin-top:1rem;margin-bottom:1rem;">
+                            <label for="custom-model-input"><i class="fas fa-plus"></i> Add custom model (HF repo, URL or local path)</label>
+                            <div style="display:flex;gap:0.5rem;">
+                                <input type="text" id="custom-model-input" placeholder="e.g. mlx-community/Mistral-7B-Instruct-v0.3 or /Users/me/model" style="flex:1;">
+                                <button class="btn btn-secondary" id="custom-model-download-btn"><i class="fas fa-download"></i> Download</button>
+                            </div>
+                        </div>
+
+                        <div class="available-models">
+                            <h3>Available Models</h3>
+                            <div class="models-grid" id="models-grid">
+                                {% for model in models %}
+                                <div class="model-card" data-model-name="{{ model.name }}">
+                                    <div class="model-header">
+                                        <h4>{{ model.name.split('/')[-1] }}</h4>
+                                        <span class="model-type {{ model.type }}">{{ model.type }}</span>
+                                    </div>
+                                    <div class="model-info">
+                                        <p>{{ model.description or "No description" }}</p>
+                                        <div class="model-meta">
+                                            <span>Size: {{ model.size }}</span>
+                                            <span class="status {{ model.status }}">{{ model.status }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="model-actions">
+                                        {% if model.status == "downloaded" %}
+                                        <button class="btn btn-primary switch-model" data-model="{{ model.name }}">
+                                            <i class="fas fa-play"></i> Use Model
+                                        </button>
+                                        {% else %}
+                                        <button class="btn btn-secondary download-model" data-model="{{ model.name }}">
+                                            <i class="fas fa-download"></i> Download
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Documents Tab -->
+                <div class="tab-content" id="documents-tab">
+                    <div class="section">
+                        <h2><i class="fas fa-file-alt"></i> Document Management</h2>
+                        
+                        <!-- Library Management Section -->
+                        <div class="library-management">
+                            <h3><i class="fas fa-layer-group"></i> Document Libraries</h3>
+                            <p class="section-description">Organize documents into separate collections for focused conversations</p>
+                            
+                            <div class="library-controls">
+                                <div class="current-library">
+                                    <label>Active Library:</label>
+                                    <select id="active-library-select" class="library-select">
+                                        <option value="default">Default Library</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="library-actions">
+                                    <button class="btn btn-primary" id="create-library-btn">
+                                        <i class="fas fa-plus"></i> New Library
+                                    </button>
+                                    <button class="btn btn-secondary" id="delete-library-btn">
+                                        <i class="fas fa-trash"></i> Delete Library
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="libraries-list" id="libraries-list">
+                                <!-- Libraries will be loaded here -->
+                            </div>
+                        </div>
+
+                        <!-- Document Processing Stats -->
+                        <div class="documents-stats">
+                            <div class="stat-card">
+                                <h3 id="total-libraries">1</h3>
+                                <p>Libraries</p>
+                            </div>
+                            <div class="stat-card">
+                                <h3 id="total-documents">{{ document_count }}</h3>
+                                <p>Documents Processed</p>
+                            </div>
+                            <div class="stat-card">
+                                <h3 id="total-vectors">{{ vector_stats.total_vectors }}</h3>
+                                <p>Text Chunks</p>
+                            </div>
+                            <div class="stat-card">
+                                <h3 id="memory-usage">{{ vector_stats.memory_usage_mb|round(1) }}</h3>
+                                <p>MB in Vector Store</p>
+                            </div>
+                            <div class="stat-card" id="monitoring-status-card">
+                                <h3 id="monitored-folders-count">0</h3>
+                                <p>Monitored Folders</p>
+                            </div>
+                        </div>
+
+                        <!-- Manual Upload Section -->
+                        <div class="upload-section">
+                            <h3><i class="fas fa-upload"></i> Manual Upload</h3>
+                            <p class="section-description">Upload files or folders to the selected library</p>
+                            
+                            <div class="upload-target">
+                                <label>Upload to Library:</label>
+                                <select id="upload-library-select" class="library-select">
+                                    <option value="default">Default Library</option>
+                                </select>
+                            </div>
+                            
+                            <div class="upload-area" id="upload-area">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <h4>Drop files or folders here</h4>
+                                <p>Supports PDF, DOCX, TXT, Markdown, and HTML files</p>
+                                
+                                <!-- File Upload Options -->
+                                <div class="upload-options">
+                                    <input type="file" id="file-input" multiple accept=".pdf,.docx,.txt,.md,.html" style="display: none;">
+                                    <input type="file" id="folder-input" webkitdirectory directory multiple style="display: none;">
+                                    
+                                    <div class="upload-buttons">
+                                        <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">
+                                            <i class="fas fa-file"></i> Choose Files
+                                        </button>
+                                        <button class="btn btn-secondary" onclick="document.getElementById('folder-input').click()">
+                                            <i class="fas fa-folder"></i> Choose Folder
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Upload Progress -->
+                                <div class="upload-progress" id="upload-progress" style="display: none;">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" id="progress-fill"></div>
+                                    </div>
+                                    <div class="progress-text" id="progress-text">Processing...</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Monitored Folders Section -->
+                        <div class="monitoring-section">
+                            <h3><i class="fas fa-eye"></i> Monitored Folders</h3>
+                            <p class="section-description">Folders that are continuously watched for changes and automatically processed</p>
+                            
+                            <div class="monitoring-library-info">
+                                <div class="library-notice">
+                                    <i class="fas fa-info-circle"></i>
+                                    <strong>Auto-processing target:</strong> Documents from monitored folders will automatically be added to the <span id="active-library-name" class="active-library-highlight">active library</span>.
+                                </div>
+                            </div>
+                            
+                            <div class="monitoring-controls">
+                                <div class="add-folder-form">
+                                    <input type="text" id="monitor-folder-path" placeholder="Enter folder path to monitor..." class="folder-input">
+                                    <button class="btn btn-primary" id="add-monitored-folder-btn">
+                                        <i class="fas fa-plus"></i> Add Folder
+                                    </button>
+                                    <button class="btn btn-secondary" id="browse-folder-btn">
+                                        <i class="fas fa-folder-open"></i> Browse
+                                    </button>
+                                </div>
+                                
+                                <div class="monitoring-status" id="monitoring-status">
+                                    <span class="status-indicator" id="watcher-status-indicator"></span>
+                                    <span id="watcher-status-text">Checking status...</span>
+                                </div>
+                            </div>
+                            
+                            <div class="monitored-folders-list" id="monitored-folders-list">
+                                <!-- Monitored folders will be loaded here -->
+                            </div>
+                            
+                            <div class="monitoring-info">
+                                <h4>How Monitoring Works:</h4>
+                                <ul>
+                                    <li><strong>Automatic Processing:</strong> New files are detected and processed within 2 seconds</li>
+                                    <li><strong>File Changes:</strong> Modified files are automatically re-processed</li>
+                                    <li><strong>Deletions:</strong> Removed files are automatically cleaned from the vector store</li>
+                                    <li><strong>Supported Formats:</strong> PDF, DOCX, TXT, Markdown, HTML</li>
+                                    <li><strong>Recursive:</strong> Monitors all subfolders automatically</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Documents List -->
+                        <div class="documents-list">
+                            <h3><i class="fas fa-list"></i> All Documents</h3>
+                            <div class="list-controls">
+                                <button class="btn btn-outline" id="refresh-documents-btn">
+                                    <i class="fas fa-sync"></i> Refresh List
+                                </button>
+                                <button class="btn btn-danger" id="clear-all-documents-btn">
+                                    <i class="fas fa-trash"></i> Clear All
+                                </button>
+                            </div>
+                            <div class="documents-container" id="documents-container">
+                                <!-- Documents will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Voice Tab -->
+                <div class="tab-content" id="voice-tab">
+                    <div class="section">
+                        <h2><i class="fas fa-microphone"></i> Voice Features</h2>
+                        
+                        <!-- Premium Voice Selection -->
+                        <div class="voice-selection">
+                            <h3><i class="fas fa-star"></i> Premium Voices (4 High-Quality Options)</h3>
+                            <div class="voice-grid" id="voice-grid">
+                                <!-- Voices will be loaded dynamically -->
+                            </div>
+                            
+                            <div class="voice-controls">
+                                <div class="setting-group">
+                                    <label for="speech-rate">Speech Rate:</label>
+                                                                <input type="range" id="speech-rate" min="140" max="200" value="{{ audio_settings.tts_rate or 150 }}">
+                            <span id="speech-rate-value">{{ audio_settings.tts_rate or 150 }}</span>
+                                    <small>Optimal range: 150-170 WPM for natural speech</small>
+                                </div>
+                                
+                                <div class="voice-actions">
+                                    <p><small><i class="fas fa-info-circle"></i> Use the Preview buttons on the voice cards above to test voices, or use the TTS demo below.</small></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Voice Features -->
+                        <div class="voice-features">
+                            <h3><i class="fas fa-cogs"></i> How to Use Voice Features</h3>
+                            
+                            <!-- Voice Mode Activation -->
+                            <div class="feature-section">
+                                <div class="feature-header">
+                                    <h4><i class="fas fa-toggle-on"></i> How to Enable Voice Features</h4>
+                                    <span class="feature-status">
+                                        <i class="fas fa-info-circle text-primary"></i> Instructions
+                                    </span>
+                                </div>
+                                <div class="feature-content">
+                                                                        <p><strong>Two separate controls for maximum flexibility:</strong></p>
+                                    <div class="usage-instructions">
+                                        <strong>How to use voice features:</strong>
+                                        
+                                        <h5>🎤 Voice-To-Text (Speaking to the AI):</h5>
+                                        <ol>
+                                            <li>Go to the <strong>Chat</strong> tab</li>
+                                            <li>Click <strong>"Voice-To-Text Mode: Disabled"</strong> to enable it</li>
+                                            <li>A microphone button will appear below the text input</li>
+                                            <li>Hold <strong>"Hold to Record"</strong> and speak your message</li>
+                                            <li>Release to automatically send your message</li>
+                                        </ol>
+                                        
+                                        <h5>🔊 Spoken Response Mode (AI reading responses):</h5>
+                                        <ol>
+                                            <li>Click <strong>"Spoken Response Mode: Disabled"</strong> to enable it</li>
+                                            <li>AI responses will automatically be read aloud</li>
+                                            <li>No additional action needed - just listen!</li>
+                                        </ol>
+                                    </div>
+                                    <div class="voice-chat-tip">
+                                        <i class="fas fa-lightbulb"></i>
+                                        <strong>Pro Tip:</strong> Enable both modes for full voice conversation, or use them separately as needed.
+                                    </div>
+                                    <div class="voice-limitation-note">
+                                        <i class="fas fa-info-circle"></i>
+                                        <strong>Note:</strong> Voice-to-Text uses "push-to-talk" mode - you need to hold the record button each time you want to speak.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- What Each Feature Does -->
+                            <div class="feature-section">
+                                <div class="feature-header">
+                                    <h4><i class="fas fa-list"></i> What Voice Mode Includes</h4>
+                                    <span class="feature-status">
+                                        <i class="fas fa-check-circle text-success"></i> All Automatic
+                                    </span>
+                                </div>
+                                <div class="feature-content">
+                                    <div class="voice-features-grid">
+                                        <div class="voice-feature-item">
+                                            <i class="fas fa-microphone"></i>
+                                            <div>
+                                                <h5>Speech-to-Text</h5>
+                                                <p>Your speech is converted to text (happens when you hold the record button)</p>
+                                            </div>
+                                        </div>
+                                        <div class="voice-feature-item">
+                                            <i class="fas fa-volume-up"></i>
+                                            <div>
+                                                <h5>Text-to-Speech</h5>
+                                                <p>AI responses are read aloud in your selected voice (happens automatically)</p>
+                                            </div>
+                                        </div>
+                                                                                 <div class="voice-feature-item">
+                                             <i class="fas fa-comments"></i>
+                                             <div>
+                                                 <h5>Full Voice Chat</h5>
+                                                 <p>Voice conversation mode (both features working together)</p>
+                                             </div>
+                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Test Your Voice -->
+                            <div class="feature-section">
+                                <div class="feature-header">
+                                    <h4><i class="fas fa-play"></i> Test Text-to-Speech</h4>
+                                    <span class="feature-status">
+                                        <i class="fas fa-check-circle text-success"></i> Ready
+                                    </span>
+                                </div>
+                                <div class="feature-content">
+                                    <p>Test how your selected voice sounds before using it in chat:</p>
+                                    <div class="tts-demo">
+                                        <input type="text" id="tts-demo-text" placeholder="Type something to test..." value="Hello! This is a test of the text-to-speech system.">
+                                        <button class="btn btn-outline" id="test-tts-demo">
+                                            <i class="fas fa-play"></i> Test TTS
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reasoning Tab -->
+                <div class="tab-content" id="reasoning-tab">
+                    <div class="section">
+                        <h2><i class="fas fa-lightbulb"></i> Hybrid Reasoning System</h2>
+                        
+                        <!-- Current Stack Display -->
+                        <div class="current-stack-display">
+                            <h3>Current Reasoning Stack</h3>
+                            <div class="stack-info">
+                                <div class="stack-name" id="current-stack-name">{{ current_stack|title }}</div>
+                                <div class="stack-description" id="current-stack-description">
+                                    {% if reasoning_stacks and current_stack in reasoning_stacks %}
+                                        {{ reasoning_stacks[current_stack].description }}
+                                    {% else %}
+                                        Auto-select best strategy for each query
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Stack Selection -->
+                        <div class="stack-selection">
+                            <h3>Available Reasoning Stacks</h3>
+                            <div class="stacks-grid" id="stacks-grid">
+                                {% for stack_id, stack_info in reasoning_stacks.items() %}
+                                <div class="stack-card {% if stack_id == current_stack %}active{% endif %}" data-stack="{{ stack_id }}">
+                                    <div class="stack-header">
+                                        <h4>{{ stack_info.name }}</h4>
+                                        {% if stack_id == current_stack %}
+                                            <span class="stack-status active">Active</span>
+                                        {% endif %}
+                                    </div>
+                                    <p>{{ stack_info.description }}</p>
+                                    <div class="stack-strategies">
+                                        <small>Strategies: {{ stack_info.strategy_order|join(', ') }}</small>
+                                    </div>
+                                    <button class="btn btn-primary stack-select-btn" data-stack="{{ stack_id }}">
+                                        {% if stack_id == current_stack %}Current{% else %}Select{% endif %}
+                                    </button>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Performance Statistics -->
+                        <div class="reasoning-performance">
+                            <h3>Reasoning Performance</h3>
+                            <div class="performance-grid">
+                                <div class="metric-card">
+                                    <h4>Total Queries</h4>
+                                    <div class="metric-value" id="total-queries">
+                                        {% if reasoning_stats and reasoning_stats.overall_stats %}
+                                            {{ reasoning_stats.overall_stats.total_queries }}
+                                        {% else %}
+                                            0
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="metric-card">
+                                    <h4>Avg Processing Time</h4>
+                                    <div class="metric-value" id="avg-processing-time">
+                                        {% if reasoning_stats and reasoning_stats.overall_stats %}
+                                            {{ "%.3f"|format(reasoning_stats.overall_stats.average_processing_time) }}s
+                                        {% else %}
+                                            0.000s
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="metric-card">
+                                    <h4>Success Rate</h4>
+                                    <div class="metric-value" id="success-rate">
+                                        {% if reasoning_stats and reasoning_stats.overall_stats %}
+                                            {{ "%.1f"|format(reasoning_stats.overall_stats.success_rate * 100) }}%
+                                        {% else %}
+                                            0.0%
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="metric-card">
+                                    <h4>DSPy Status</h4>
+                                    <div class="metric-value" id="dspy-status">
+                                        {% if settings.enable_dspy %}
+                                            <span class="status enabled">Enabled</span>
+                                        {% else %}
+                                            <span class="status disabled">Disabled</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Strategy Usage Statistics -->
+                        <div class="strategy-usage">
+                            <h3>Strategy Usage</h3>
+                            <div class="usage-chart" id="strategy-usage-chart">
+                                <!-- Strategy usage visualization will go here -->
+                            </div>
+                        </div>
+
+                        <!-- Configuration Options -->
+                        <div class="reasoning-config">
+                            <h3>Configuration</h3>
+                            <div class="config-grid">
+                                <div class="setting-group">
+                                    <label for="enable-dspy">
+                                        <input type="checkbox" id="enable-dspy" {% if settings.enable_dspy %}checked{% endif %}>
+                                        Enable DSPy Optimization
+                                    </label>
+                                    <small>Use DSPy for automatic prompt optimization</small>
+                                </div>
+                                
+                                <div class="setting-group">
+                                    <label for="performance-tracking">
+                                        <input type="checkbox" id="performance-tracking" checked>
+                                        Enable Performance Tracking
+                                    </label>
+                                    <small>Track strategy performance and usage statistics</small>
+                                </div>
+                                
+                                <div class="setting-group">
+                                    <label for="confidence-threshold">Confidence Threshold:</label>
+                                    <input type="range" id="confidence-threshold" min="0.1" max="1.0" step="0.1" value="0.7">
+                                    <span id="confidence-threshold-value">0.7</span>
+                                    <small>Minimum confidence required for strategy selection</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="reasoning-actions">
+                            <button class="btn btn-primary" id="refresh-reasoning-stats">
+                                <i class="fas fa-sync"></i> Refresh Statistics
+                            </button>
+                            <button class="btn btn-secondary" id="export-reasoning-stats">
+                                <i class="fas fa-download"></i> Export Performance Data
+                            </button>
+                            <button class="btn btn-outline" id="optimize-reasoning">
+                                <i class="fas fa-cogs"></i> Optimize System
+                            </button>
+                        </div>
+
+                            <div class="setting-group">
+                                <label for="reasoning-top-p">Reasoning Top-P:</label>
+                                <input type="number" id="reasoning-top-p" min="0" max="1" step="0.01" value="0.9">
+                                <span id="reasoning-top-p-value">0.9</span>
+                            </div>
+
+                            <div class="setting-group">
+                                <label for="reasoning-frequency-penalty">Reasoning Frequency Penalty:</label>
+                                <input type="number" id="reasoning-frequency-penalty" min="-2" max="2" step="0.1" value="0.5">
+                                <span id="reasoning-frequency-penalty-value">0.5</span>
+                            </div>
+
+                            <div class="setting-group">
+                                <label for="reasoning-presence-penalty">Reasoning Presence Penalty:</label>
+                                <input type="number" id="reasoning-presence-penalty" min="-2" max="2" step="0.1" value="0.5">
+                                <span id="reasoning-presence-penalty-value">0.5</span>
+                            </div>
+
+                            <div class="setting-group">
+                                <label for="reasoning-stop-sequences">Reasoning Stop Sequences:</label>
+                                <textarea id="reasoning-stop-sequences" rows="3" placeholder="['\n']"></textarea>
+                                <small>Comma-separated list of sequences to stop reasoning at.</small>
+                            </div>
+
+                            <div class="setting-group">
+                                <label for="reasoning-prompt-template">Reasoning Prompt Template:</label>
+                                <textarea id="reasoning-prompt-template" rows="4" placeholder="Reasoning Prompt Template">
+{%- if system_prompt %}{{ system_prompt }}{% endif -%}
+</textarea>
+                                <small>Template for prompts in reasoning strategies.</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+
+                            
+                            <div class="metric-card">
+                                <h3>Memory Usage</h3>
+                                <div class="metric">
+                                    <span class="metric-label">Used:</span>
+                                    <span class="metric-value" id="perf-memory">0GB</span>
+                                </div>
+                                <div class="metric">
+                                    <span class="metric-label">Available:</span>
+                                    <span class="metric-value" id="perf-memory-available">0GB</span>
+                                </div>
+                            </div>
+                            
+                            <div class="metric-card">
+                                <h3>System Stats</h3>
+                                <div class="metric">
+                                    <span class="metric-label">Documents:</span>
+                                    <span class="metric-value" id="perf-doc-count">0</span>
+                                </div>
+                                <div class="metric">
+                                    <span class="metric-label">Vectors:</span>
+                                    <span class="metric-value" id="perf-vector-count">0</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- MLX Performance Profiling Section -->
+                        <div class="profiling-section">
+                            <h3><i class="fas fa-microscope"></i> MLX Performance Profiling</h3>
+                            
+                            <div class="profiling-controls">
+                                <div class="setting-group">
+                                    <label for="profile-model-select">Model to Profile:</label>
+                                    <select id="profile-model-select">
+                                        <option value="">Current Model</option>
+                                        {% for model in models %}
+                                        <option value="{{ model.name }}">{{ model.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <div class="setting-group">
+                                    <label>
+                                        <input type="checkbox" id="quick-profiling" checked>
+                                        Quick Mode (faster profiling)
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="profiling-actions">
+                                <button class="btn btn-primary" id="run-profiling">
+                                    <i class="fas fa-microscope"></i> Run Profiling
+                                </button>
+                                <button class="btn btn-secondary" id="compare-models">
+                                    <i class="fas fa-balance-scale"></i> Compare Models
+                                </button>
+                                <button class="btn btn-outline" id="optimization-guide">
+                                    <i class="fas fa-book"></i> Optimization Guide
+                                </button>
+                            </div>
+                            
+                            <!-- Profiling Results -->
+                            <div class="profiling-results" id="profiling-results" style="display: none;">
+                                <h4>Profiling Results</h4>
+                                <div class="results-summary" id="results-summary">
+                                    <!-- Results will be populated here -->
+                                </div>
+                                <div class="results-actions">
+                                    <button class="btn btn-secondary" id="download-results">
+                                        <i class="fas fa-download"></i> Download Report
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="performance-actions">
+                            <button class="btn btn-primary" id="refresh-metrics">
+                                <i class="fas fa-sync"></i> Refresh Metrics
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Settings Tab -->
+                <div class="tab-content" id="settings-tab">
+                    <div class="section">
+                        <h2><i class="fas fa-cog"></i> Settings</h2>
+                        
+                        <div class="settings-grid">
+                            <div class="setting-group">
+                                <h3>Generation Settings</h3>
+                                
+                                <div class="setting-item">
+                                    <label for="temperature">Temperature:</label>
+                                    <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7">
+                                    <span id="temperature-value">0.7</span>
+                                </div>
+                                
+                                <div class="setting-item">
+                                    <label for="max-tokens">Max Tokens:</label>
+                                    <input type="number" id="max-tokens" min="50" max="4000" value="2000">
+                                </div>
+                            </div>
+                            
+                            <div class="setting-group">
+                                <h3>Hugging Face Integration</h3>
+                                
+                                <div class="setting-item">
+                                    <label for="hf-token">Hugging Face Token (optional):</label>
+                                    <input type="password" id="hf-token" placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxx">
+                                    <small>Required only for gated models (like Llama). Leave empty for public models.</small>
+                                </div>
+                                
+                                <div class="setting-item">
+                                    <button class="btn btn-secondary" id="test-hf-token">
+                                        <i class="fas fa-check"></i> Test Token
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="setting-group">
+                                <h3>Vector Store Settings</h3>
+                                
+                                <div class="setting-item">
+                                    <label for="chunk-size">Chunk Size:</label>
+                                    <input type="number" id="chunk-size" min="100" max="2000" value="500">
+                                </div>
+                                
+                                <div class="setting-item">
+                                    <label for="top-k">Top K Results:</label>
+                                    <input type="number" id="top-k" min="1" max="20" value="5">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="settings-actions">
+                            <button class="btn btn-primary" id="save-settings">
+                                <i class="fas fa-save"></i> Save Settings
+                            </button>
+                            <button class="btn btn-secondary" id="reset-settings">
+                                <i class="fas fa-undo"></i> Reset to Defaults
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Loading...</p>
+        </div>
+    </div>
+
+    <!-- Include JavaScript -->
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/tab_loader.js"></script>
+</body>
+</html>

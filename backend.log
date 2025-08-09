@@ -1,0 +1,54 @@
+INFO:     Started server process [87961]
+INFO:     Waiting for application startup.
+INFO:main:🚀 Starting LLMind v1.1.0...
+INFO:main:✅ LLMind web interface started!
+INFO:main:📊 Dashboard available at: http://localhost:8000
+INFO:main:⏳ Core components initializing in background...
+INFO:main:🔧 Initializing core components in background...
+🏗️  LLMind Enhanced directories created at: /Users/matthewgreer/Projects/LLMind
+🧠 Hybrid Reasoning: enabled
+🎯 Default Stack: auto
+✅ DSPy reasoning system initialized!
+🔊 Loaded 9 premium TTS voices
+🧠 Initializing MLX Manager...
+🔍 Discovering MLX models from Hugging Face Hub...
+✅ Discovered 100 MLX models
+✅ Discovered 100 MLX models
+✅ Default model mlx-community/Llama-3.2-3B-Instruct-4bit available for lazy loading
+🚀 Loading default model mlx-community/Llama-3.2-3B-Instruct-4bit on startup...
+🔄 Switching to model: mlx-community/Llama-3.2-3B-Instruct-4bit
+Fetching 6 files:   0%|          | 0/6 [00:00<?, ?it/s]Fetching 6 files: 100%|██████████| 6/6 [00:00<00:00, 142179.80it/s]
+INFO:sentence_transformers.SentenceTransformer:Use pytorch device_name: mps
+INFO:sentence_transformers.SentenceTransformer:Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+INFO:main:✅ LLMind fully initialized!
+INFO:main:🎤 Voice features: enabled
+INFO:main:🧠 Hybrid reasoning: enabled
+INFO:main:🎯 Reasoning stack: auto
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://localhost:8000 (Press CTRL+C to quit)
+✅ Model mlx-community/Llama-3.2-3B-Instruct-4bit loaded in 1.01s
+✅ Default model loaded
+🔍 Initializing Vector Store with multiple libraries support...
+📥 Loading embedding model: all-MiniLM-L6-v2
+🚀 Enabled half-precision embeddings for memory optimization
+🚀 Using Metal Performance Shaders acceleration
+📖 Loaded library 'default' with 0 documents
+📚 Loaded 1 libraries
+✅ Vector Store initialized with 1 libraries
+🎤 Initializing Audio Manager...
+📥 Loading Whisper model (optimized for Apple Silicon)...
+✅ Whisper base model loaded successfully!
+✅ Speech recognizer initialized!
+🔊 Loaded 9 premium TTS voices
+✅ Audio Manager initialized successfully!
+💬 Initializing Enhanced Chat Engine with Hybrid Reasoning...
+🧠 Initializing Hybrid Stack Manager...
+✅ Hybrid Stack Manager initialized!
+✅ Enhanced Chat Engine initialized!
+INFO:     ::1:56151 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     ::1:56155 - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:main:📡 WebSocket test message handled
+INFO:     connection closed
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/multiprocessing/resource_tracker.py:301: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown: {'/loky-87961-210kscyp'}
+  warnings.warn(

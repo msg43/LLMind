@@ -1,0 +1,110 @@
+{
+  "id": "c478a59a-21f6-43fa-8394-71a384c86b81",
+  "title": "hi",
+  "created_at": "2025-07-21T22:34:57.894136",
+  "updated_at": "2025-07-21T22:35:19.220596",
+  "messages": [
+    {
+      "id": 0,
+      "type": "user",
+      "message": "hi",
+      "timestamp": "2025-07-21T22:34:57.894136",
+      "relevant_docs": 0,
+      "context_chars": 0
+    },
+    {
+      "id": 1,
+      "type": "assistant",
+      "message": "Hello! How can I help you today?",
+      "timestamp": "2025-07-21T22:34:58.352441",
+      "response_time": 0.45830512046813965,
+      "sources": [],
+      "reasoning": {
+        "strategy": "FastPath",
+        "confidence": 0.95,
+        "processing_time": 0.003763914108276367,
+        "bypass_reasoning": false
+      }
+    },
+    {
+      "id": 2,
+      "type": "user",
+      "message": "tell me a joke",
+      "timestamp": "2025-07-21T22:35:03.596053",
+      "relevant_docs": 4,
+      "context_chars": 1508
+    },
+    {
+      "id": 3,
+      "type": "assistant",
+      "message": "Here's one: What do you call a fake noodle? An impasta! Hope that made you smile! Do you want to hear another one?",
+      "timestamp": "2025-07-21T22:35:04.940412",
+      "response_time": 1.3443589210510254,
+      "sources": [
+        "Unknown",
+        "Unknown",
+        "Unknown"
+      ],
+      "reasoning": {
+        "strategy": "FastPath",
+        "confidence": 0.7,
+        "processing_time": 0.001500844955444336,
+        "bypass_reasoning": false
+      }
+    },
+    {
+      "id": 4,
+      "type": "user",
+      "message": "sure",
+      "timestamp": "2025-07-21T22:35:09.760809",
+      "relevant_docs": 4,
+      "context_chars": 1509
+    },
+    {
+      "id": 5,
+      "type": "assistant",
+      "message": "What can I help you with?",
+      "timestamp": "2025-07-21T22:35:10.376325",
+      "response_time": 0.615516185760498,
+      "sources": [
+        "Unknown",
+        "Unknown",
+        "Unknown"
+      ],
+      "reasoning": {
+        "strategy": "FastPath",
+        "confidence": 0.95,
+        "processing_time": 0.0012841224670410156,
+        "bypass_reasoning": false
+      }
+    },
+    {
+      "id": 6,
+      "type": "user",
+      "message": "2+2",
+      "timestamp": "2025-07-21T22:35:18.783432",
+      "relevant_docs": 0,
+      "context_chars": 0
+    },
+    {
+      "id": 7,
+      "type": "assistant",
+      "message": "4",
+      "timestamp": "2025-07-21T22:35:19.220567",
+      "response_time": 0.4371349811553955,
+      "sources": [],
+      "reasoning": {
+        "strategy": "FastPath",
+        "confidence": 0.95,
+        "processing_time": 0.0008840560913085938,
+        "bypass_reasoning": false
+      }
+    }
+  ],
+  "message_count": 8,
+  "metadata": {
+    "model_used": "mlx-community/Llama-3.1-8B-Instruct-4bit",
+    "total_tokens": 44,
+    "reasoning_stack": "auto"
+  }
+}

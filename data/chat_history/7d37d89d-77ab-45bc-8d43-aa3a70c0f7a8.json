@@ -1,0 +1,66 @@
+{
+  "id": "7d37d89d-77ab-45bc-8d43-aa3a70c0f7a8",
+  "title": "Tell me a story",
+  "created_at": "2025-07-22T09:09:28.839461",
+  "updated_at": "2025-07-22T09:09:53.446671",
+  "messages": [
+    {
+      "id": 0,
+      "type": "user",
+      "message": "Tell me a story",
+      "timestamp": "2025-07-22T09:09:28.839461",
+      "relevant_docs": 4,
+      "context_chars": 1509
+    },
+    {
+      "id": 1,
+      "type": "assistant",
+      "message": "In a small village nestled between two great mountains, there lived a young girl named Aki. She was known for her kindness and love for the stars. Every night, Aki would sneak out of her hut and gaze up at the sky, dreaming of the day she'd explore the world beyond her village. One evening, as she was lost in thought, a shooting star streaked across the sky. Aki made a wish, and as she did, a small, glowing stone fell from the heavens and landed at her feet. The stone began to glow brighter, and Aki felt an inexplicable pull, as if it was calling.",
+      "timestamp": "2025-07-22T09:09:31.883245",
+      "response_time": 3.0437839031219482,
+      "sources": [
+        "Unknown",
+        "Unknown",
+        "Unknown"
+      ],
+      "reasoning": {
+        "strategy": "FastPath",
+        "confidence": 0.7,
+        "processing_time": 0.0014269351959228516,
+        "bypass_reasoning": false
+      }
+    },
+    {
+      "id": 2,
+      "type": "user",
+      "message": "Tell me a longer story",
+      "timestamp": "2025-07-22T09:09:49.912962",
+      "relevant_docs": 4,
+      "context_chars": 1508
+    },
+    {
+      "id": 3,
+      "type": "assistant",
+      "message": "In the small town of Willow Creek, nestled in the heart of the Appalachian Mountains, there lived a young woman named Emily Mayfield. She was a skilled weaver and had inherited her grandmother's old loom, which had been passed down through generations of women in her family. Emily's life was simple and predictable, with each day blending into the next. She would wake up early, tend to her garden, and then spend the morning weaving on her loom. Her creations were renowned throughout the town, and people would often come to her to commission specific pieces. One day, a stranger arrived in Willow Creek. He was a tall.",
+      "timestamp": "2025-07-22T09:09:53.446534",
+      "response_time": 3.53357195854187,
+      "sources": [
+        "Unknown",
+        "Unknown",
+        "Unknown"
+      ],
+      "reasoning": {
+        "strategy": "FastPath",
+        "confidence": 0.7,
+        "processing_time": 0.0007376670837402344,
+        "bypass_reasoning": false
+      }
+    }
+  ],
+  "message_count": 4,
+  "metadata": {
+    "model_used": "mlx-community/Llama-3.1-8B-Instruct-4bit",
+    "total_tokens": 223,
+    "reasoning_stack": "auto"
+  }
+}

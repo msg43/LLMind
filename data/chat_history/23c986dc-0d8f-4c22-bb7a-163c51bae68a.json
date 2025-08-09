@@ -1,0 +1,36 @@
+{
+  "id": "23c986dc-0d8f-4c22-bb7a-163c51bae68a",
+  "title": "hi",
+  "created_at": "2025-07-21T23:08:11.913593",
+  "updated_at": "2025-07-21T23:08:12.354269",
+  "messages": [
+    {
+      "id": 0,
+      "type": "user",
+      "message": "hi",
+      "timestamp": "2025-07-21T23:08:11.913593",
+      "relevant_docs": 0,
+      "context_chars": 0
+    },
+    {
+      "id": 1,
+      "type": "assistant",
+      "message": "Hello! How can I help you today?",
+      "timestamp": "2025-07-21T23:08:12.354097",
+      "response_time": 0.4405038356781006,
+      "sources": [],
+      "reasoning": {
+        "strategy": "FastPath",
+        "confidence": 0.95,
+        "processing_time": 0.004138946533203125,
+        "bypass_reasoning": false
+      }
+    }
+  ],
+  "message_count": 2,
+  "metadata": {
+    "model_used": "mlx-community/Llama-3.1-8B-Instruct-4bit",
+    "total_tokens": 8,
+    "reasoning_stack": "auto"
+  }
+}

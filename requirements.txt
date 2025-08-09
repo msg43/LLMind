@@ -52,6 +52,7 @@ loguru>=0.7.2
 psutil>=5.9.6
 tqdm>=4.66.1
 watchdog>=4.0.0
+requests>=2.31.0
 
 # Profiling and Optimization
 matplotlib>=3.8.2

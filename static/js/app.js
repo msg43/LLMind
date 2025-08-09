@@ -96,6 +96,9 @@ class LLMindApp {
         }
 
         console.log('✅ LLMind finalization complete!');
+
+        // Optionally check for updates on startup (silent)
+        this.checkForUpdatesOnStartup();
     }
 
     ensureTabsAreWorking() {
@@ -448,6 +451,64 @@ class LLMindApp {
 
         // Tab switching is already handled by setupTabSwitching() above
         // setupTabDataLoading(); // Removed redundant function call
+
+        // Updates
+        const checkUpdatesBtn = document.getElementById('check-updates-btn');
+        if (checkUpdatesBtn) {
+            checkUpdatesBtn.addEventListener('click', async () => {
+                try {
+                    checkUpdatesBtn.disabled = true;
+                    checkUpdatesBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+                    const res = await fetch('/api/update/check');
+                    const data = await res.json();
+                    if (data.status === 'success') {
+                        const confirmUpdate = confirm(`Latest commit: ${data.latest_commit}.\nUpdate now?`);
+                        if (confirmUpdate) {
+                            await this.applyUpdate();
+                        }
+                    } else if (data.status === 'disabled') {
+                        this.showToast('Updates are disabled', 'warning');
+                    } else {
+                        this.showToast(data.message || 'Failed to check updates', 'error');
+                    }
+                } catch (e) {
+                    console.error('Update check failed', e);
+                    this.showToast('Update check failed', 'error');
+                } finally {
+                    checkUpdatesBtn.disabled = false;
+                    checkUpdatesBtn.innerHTML = '<i class="fas fa-sync"></i> Update';
+                }
+            });
+        }
+    }
+
+    async applyUpdate() {
+        try {
+            this.showToast('Applying update...', 'info');
+            const res = await fetch('/api/update/apply', { method: 'POST' });
+            const data = await res.json();
+            if (data.status === 'success') {
+                this.showToast('Update applied. Please restart the app.', 'success');
+            } else {
+                this.showToast(data.detail || data.message || 'Update failed', 'error');
+            }
+        } catch (e) {
+            console.error('Apply update failed', e);
+            this.showToast('Apply update failed', 'error');
+        }
+    }
+
+    async checkForUpdatesOnStartup() {
+        try {
+            const res = await fetch('/api/update/check');
+            const data = await res.json();
+            if (data.status === 'success' && data.latest_commit) {
+                // Auto-apply updates on startup
+                await this.applyUpdate();
+            }
+        } catch (e) {
+            // Silent failure
+        }
     }
 
     setupRangeInputs() {
@@ -3814,7 +3875,7 @@ class LLMindApp {
                 const exportData = {
                     timestamp: new Date().toISOString(),
                     system_info: {
-                        app_version: '1.1.0',
+                        app_version: '1.1.4',
                         export_type: 'performance_metrics'
                     },
                     ...data

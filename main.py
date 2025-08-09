@@ -1487,6 +1487,129 @@ async def get_system_info():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# === SELF-UPDATE ENDPOINTS ===
+
+
+def _is_path_preserved(path: Path) -> bool:
+    try:
+        str_path = str(path)
+        for preserve in settings.update_preserve_paths:
+            if str_path == preserve or str_path.startswith(f"{preserve}/"):
+                return True
+    except Exception:
+        pass
+    return False
+
+
+@app.get("/api/update/check")
+async def check_for_updates():
+    if not settings.update_enabled:
+        return {"status": "disabled"}
+
+    try:
+        import requests
+
+        repo_url = settings.update_repo_url
+        if not repo_url:
+            return {"status": "error", "message": "update_repo_url not set"}
+
+        # Expect https://github.com/owner/repo
+        parts = repo_url.rstrip("/").split("/")
+        if len(parts) < 2:
+            return {"status": "error", "message": "Invalid repo URL"}
+        owner, repo = parts[-2], parts[-1]
+
+        api_url = f"https://api.github.com/repos/{owner}/{repo}/commits/{settings.update_branch}"
+        resp = requests.get(api_url, timeout=10)
+        if resp.status_code != 200:
+            return {"status": "error", "message": f"GitHub API error: {resp.status_code}"}
+        latest = resp.json()
+
+        current_version = settings.app_version
+        latest_sha = latest.get("sha", "")[:7]
+        return {
+            "status": "success",
+            "current_version": current_version,
+            "latest_commit": latest_sha,
+            "compare_url": f"https://github.com/{owner}/{repo}/compare/{settings.update_branch}",
+        }
+    except Exception as e:
+        logger.error(f"Update check failed: {e}")
+        return {"status": "error", "message": str(e)}
+
+
+@app.post("/api/update/apply")
+async def apply_update():
+    if not settings.update_enabled:
+        raise HTTPException(status_code=400, detail="Updates disabled")
+
+    try:
+        import io
+        import shutil
+        import tempfile
+        import zipfile
+        import requests
+
+        base_dir = Path(__file__).parent
+
+        # Choose method
+        mode = settings.update_mode
+        repo_url = settings.update_repo_url
+
+        if mode in ("auto", "zip") and repo_url:
+            # Download zip archive of branch
+            parts = repo_url.rstrip("/").split("/")
+            owner, repo = parts[-2], parts[-1]
+            zip_url = f"https://github.com/{owner}/{repo}/archive/refs/heads/{settings.update_branch}.zip"
+            r = requests.get(zip_url, timeout=60)
+            if r.status_code != 200:
+                raise RuntimeError(f"Failed to download zip: {r.status_code}")
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                zf = zipfile.ZipFile(io.BytesIO(r.content))
+                zf.extractall(tmpdir)
+
+                # The zip contains a top-level folder repo-branch
+                extracted_root = None
+                for p in Path(tmpdir).iterdir():
+                    if p.is_dir():
+                        extracted_root = p
+                        break
+                if not extracted_root:
+                    raise RuntimeError("Invalid archive structure")
+
+                # Copy files into base_dir, preserving user data paths
+                for item in extracted_root.iterdir():
+                    target = base_dir / item.name
+                    if _is_path_preserved(Path(item.name)):
+                        continue
+                    if target.exists():
+                        if target.is_dir():
+                            shutil.rmtree(target)
+                        else:
+                            target.unlink()
+                    if item.is_dir():
+                        shutil.copytree(item, target)
+                    else:
+                        shutil.copy2(item, target)
+
+        elif mode == "git":
+            # Use system git if repository cloned with git metadata
+            import subprocess
+
+            if not (base_dir / ".git").exists():
+                raise RuntimeError(".git not found; cannot use git update")
+            subprocess.check_call(["git", "fetch", "--all"], cwd=str(base_dir))
+            subprocess.check_call(["git", "reset", "--hard", f"origin/{settings.update_branch}"], cwd=str(base_dir))
+        else:
+            raise RuntimeError("No valid update method configured")
+
+        return {"status": "success", "message": "Application updated. Please restart."}
+    except Exception as e:
+        logger.error(f"Update apply failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Broadcast updates to all connected WebSocket clients
 async def broadcast_update(message: Dict[str, Any]):
     """Broadcast update to all connected WebSocket clients"""

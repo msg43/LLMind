@@ -1,0 +1,47 @@
+INFO:     Started server process [65890]
+INFO:     Waiting for application startup.
+INFO:main:🚀 Starting LlamaFast v1.1.0...
+INFO:main:✅ LlamaFast web interface started!
+INFO:main:📊 Dashboard available at: http://127.0.0.1:8000
+INFO:main:⏳ Core components initializing in background...
+INFO:main:🔧 Initializing core components in background...
+🏗️  LlamaFast Enhanced directories created at: /Users/matthewgreer/Projects/LlamaFast
+🧠 Hybrid Reasoning: enabled
+🎯 Default Stack: auto
+✅ DSPy reasoning system initialized!
+✅ DSPy reasoning system initialized!
+🧠 Initializing MLX Manager...
+🔄 Switching to model: mlx-community/Llama-3.1-8B-Instruct-4bit
+Fetching 6 files:   0%|          | 0/6 [00:00<?, ?it/s]Fetching 6 files: 100%|██████████| 6/6 [00:00<00:00, 88301.14it/s]
+INFO:sentence_transformers.SentenceTransformer:Use pytorch device_name: mps
+INFO:sentence_transformers.SentenceTransformer:Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:main:✅ LlamaFast fully initialized!
+INFO:main:🎤 Voice features: enabled
+INFO:main:🧠 Hybrid reasoning: enabled
+INFO:main:🎯 Reasoning stack: auto
+✅ Model mlx-community/Llama-3.1-8B-Instruct-4bit loaded in 1.19s
+✅ MLX Manager initialized successfully!
+🔍 Initializing Vector Store...
+📥 Loading embedding model: sentence-transformers/all-MiniLM-L6-v2
+🚀 Using Metal Performance Shaders acceleration
+📚 Loaded existing index with 4 documents (4 vectors)
+✅ Vector Store initialized successfully!
+🎤 Initializing Audio Manager...
+📥 Loading Whisper model (optimized for Apple Silicon)...
+✅ Whisper model loaded successfully!
+✅ Speech recognizer initialized!
+🔊 Found 177 TTS voices
+✅ Audio Manager initialized successfully!
+💬 Initializing Enhanced Chat Engine with Hybrid Reasoning...
+🧠 Initializing Hybrid Stack Manager...
+✅ Hybrid Stack Manager initialized!
+✅ Enhanced Chat Engine initialized!
+INFO:     127.0.0.1:57860 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57861 - "GET / HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:main:🛑 Shutting down components...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [65890]

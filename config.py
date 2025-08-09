@@ -13,7 +13,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # Application
     app_name: str = "LLMind"
-    app_version: str = "1.1.0"  # Updated for hybrid reasoning
+    app_version: str = "1.1.4"  # Updated for hybrid reasoning
     debug: bool = True
     environment: str = "development"
 
@@ -36,6 +36,21 @@ class Settings(BaseSettings):
     vector_store_dir: Path = base_dir / "vector_store"
     static_dir: Path = base_dir / "static"
     templates_dir: Path = base_dir / "templates"
+
+    # Self-Update
+    update_enabled: bool = True
+    update_mode: str = "auto"  # auto, git, zip
+    update_repo_url: str | None = None  # e.g., https://github.com/owner/repo
+    update_branch: str = "main"
+    update_preserve_paths: tuple[str, ...] = (
+        "data",
+        "documents",
+        "vector_store",
+        "models",
+        "logs",
+        ".env",
+        "venv",
+    )
 
     # MLX Model Settings (Apple Silicon Optimized)
     default_model: str = "mlx-community/Qwen2.5-1.5B-Instruct-4bit"
