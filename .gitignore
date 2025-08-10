@@ -9,6 +9,11 @@ __pycache__/
 # tensor files
 *.safe
 *.safetensors
+*.pt
+
+# Model files and directories
+models/whisper/
+models/embeddings/
 
 # Metal libraries
 *.metallib

@@ -13,7 +13,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # Application
     app_name: str = "LLMind"
-    app_version: str = "1.1.4"  # Updated for hybrid reasoning
+    app_version: str = "1.1.5"  # Updated for hybrid reasoning
     debug: bool = True
     environment: str = "development"
 
