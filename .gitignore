@@ -12,8 +12,14 @@ __pycache__/
 *.pt
 
 # Model files and directories
+models/
 models/whisper/
 models/embeddings/
+*.pt
+*.bin
+*.gguf
+*.safetensors
+*.model
 
 # Metal libraries
 *.metallib

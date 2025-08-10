@@ -3875,7 +3875,7 @@ class LLMindApp {
                 const exportData = {
                     timestamp: new Date().toISOString(),
                     system_info: {
-                        app_version: '1.1.5',
+                        app_version: '1.1.6',
                         export_type: 'performance_metrics'
                     },
                     ...data
