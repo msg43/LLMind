@@ -97,3 +97,11 @@ build/
 
 # Jetbrains
 .cache
+
+# Resilio Sync placeholder files — never real content
+*.rsls
+*.rslsz
+*.rslsc
+
+# Local vector index (runtime data)
+vector_store/
