@@ -105,3 +105,6 @@ build/
 
 # Local vector index (runtime data)
 vector_store/
+
+# SpecStory session transcripts — capture .env contents verbatim; never commit
+.specstory/
